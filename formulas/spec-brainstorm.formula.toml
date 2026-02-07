@@ -1,0 +1,47 @@
+# Design Spec Brainstorm Formula
+#
+# Turn ideas into validated design specs through smart dialogue.
+# If scope questions exist from a previous multimodal analysis, uses them
+# to accelerate brainstorming. If not, runs like standard brainstorming.
+#
+# Usage:
+#   gt sling spec-brainstorm dypt/crew/neo \
+#     --var feature="task-templates" \
+#     --var brief="Add a Task Templates feature that allows users to..."
+
+description = """
+Turn ideas into fully formed validated design specs through smart dialogue.
+
+If scope questions exist from a previous multimodal analysis, uses them
+to accelerate brainstorming - auto-answering where possible and focusing
+human dialogue on true branch points.
+
+If no questions file exists, runs like standard brainstorming from scratch.
+
+This is part of the design-to-implementation pipeline.
+"""
+formula = "spec-brainstorm"
+type = "workflow"
+version = 4
+
+[vars]
+[vars.feature]
+description = "Feature name (used for input/output paths)"
+required = true
+
+[vars.brief]
+description = "Feature brief or description"
+required = true
+
+# Placeholder step that will be expanded
+[[steps]]
+id = "brainstorm"
+title = "Run brainstorming process"
+description = "This step is expanded into the full brainstorming workflow."
+
+# Composition: expand the placeholder with the expansion formula
+[compose]
+
+[[compose.expand]]
+target = "brainstorm"
+with = "spec-brainstorm-expansion"

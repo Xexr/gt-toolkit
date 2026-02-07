@@ -1,0 +1,840 @@
+# Multimodal Design Scope Questions - EXPANSION VERSION
+#
+# This is the expansion-type version that can be composed into other workflows.
+# Use spec-multimodal-scope-questions for standalone execution.
+#
+# Each model (Opus, GPT, Gemini) explores ALL THREE perspectives:
+# - User Advocate: What do users expect?
+# - Product Designer: What's the UX flow?
+# - Domain Expert: What's missing from the problem domain?
+#
+# Result: 9 analyses -> 3 model documents -> 1 synthesized question backlog
+
+description = """
+EXPANSION: Surface design blind spots using a 3x3 matrix of models and perspectives.
+
+This is an expansion-type formula for composition into other workflows.
+It transforms a single step into the full 3x3 scope questions process.
+
+Use spec-multimodal-scope-questions for standalone execution.
+"""
+formula = "spec-multimodal-scope-questions-expansion"
+type = "expansion"
+version = 1
+
+# Note: vars are inherited from the parent workflow that expands this
+
+# ============================================================================
+# CONTEXT GATHERING
+# ============================================================================
+
+[[template]]
+id = "{target}.context-gathering"
+title = "Gather codebase context"
+description = """
+Use Haiku to quickly explore the codebase and create a context document that all models will reference.
+
+**IMPORTANT: File paths must be relative to the repository root, NOT under docs/.**
+
+## Setup
+```bash
+mkdir -p plans/{{feature}}/scope-questions
+```
+
+## Dispatch Haiku Explorer
+
+```
+Task(
+  subagent_type="Explore",
+  model="haiku",
+  prompt="You are gathering codebase context to help design a new feature.
+
+## Feature Brief
+{{brief}}
+
+## Your Task
+Explore this codebase and create a context summary that will help other LLMs ask better design questions.
+
+## What to Discover
+
+### 1. App Structure
+- What are the main directories and what do they contain?
+- Where does the UI code live?
+- Where does business logic live?
+- What's the entry point?
+
+### 2. Existing UI Patterns
+- What screens/pages currently exist?
+- What navigation patterns are used?
+- What component library or design system is in use?
+- What common UI patterns repeat across the app?
+
+### 3. Related Features
+- What features exist that are similar to or adjacent to {{feature}}?
+- What user flows currently exist that this feature might integrate with?
+- What data/state is already available that this feature might use?
+
+### 4. Tech Stack
+- What frameworks/libraries are in use? (React, Vue, Next.js, etc.)
+- What state management approach is used?
+- Any relevant constraints from the stack?
+
+### 5. Project Context
+- Check CLAUDE.md, README.md, or similar docs for project conventions
+- Any documented design principles or patterns to follow?
+- Any anti-patterns to avoid?
+
+## Output
+Write your findings to: plans/{{feature}}/scope-questions/context.md
+
+Use this format:
+```markdown
+# Codebase Context: {{feature}}
+
+## App Structure
+[Your findings - be specific about paths]
+
+## Existing UI Patterns
+[What patterns exist that the new feature should follow]
+
+## Related Features
+[Features that this new feature might interact with or learn from]
+
+## Tech Stack
+[Frameworks, libraries, constraints]
+
+## Project Conventions
+[From CLAUDE.md, README, etc.]
+
+## Key Files to Reference
+[Specific files that would be relevant when designing this feature]
+```
+
+Be thorough but fast. Focus on what would help someone design a new feature.
+Write directly to the file using the Write tool."
+)
+```
+
+Wait for Haiku to complete (typically 30-60 seconds), then proceed to the model generation steps.
+"""
+
+# ============================================================================
+# OPUS: GENERATION + CONSOLIDATION
+# ============================================================================
+
+[[template]]
+id = "{target}.opus-generation"
+title = "Opus 4.5: Generate questions"
+needs = ["{target}.context-gathering"]
+description = """
+Launch THREE parallel Opus sub-tasks. Each writes to a temp file.
+
+**IMPORTANT: File paths must be relative to the repository root, NOT under docs/.**
+
+## Execution
+Launch all three in parallel using `run_in_background=true`:
+
+### Sub-task 1: User Advocate (Opus)
+```
+Task(
+  subagent_type="general-purpose",
+  model="opus",
+  run_in_background=true,
+  description="Opus User Advocate",
+  prompt="You are a User Advocate analyzing a feature brief. Write your output to a file.
+
+## Step 1: Read Codebase Context
+First, read plans/{{feature}}/scope-questions/context.md to understand the existing app.
+
+## Feature Brief
+{{brief}}
+
+## Your Perspective: User Advocate
+Think like a user who will use this feature daily.
+
+**User Expectations**
+- What would users assume this feature does?
+- What similar features have they used elsewhere?
+- What would disappoint or confuse them?
+
+**User Journey**
+- What's the user trying to accomplish?
+- What's their emotional state? Rushed? Relaxed?
+- What happens before and after using this?
+
+**Edge Cases (User Behavior)**
+- What weird things might users try?
+- What if they use it wrong?
+- What if they change their mind halfway?
+
+**Accessibility & Inclusion**
+- Who might struggle with this?
+- What assumptions are we making?
+
+Generate at least 10 questions per category - more if warranted. Do not artificially limit yourself.
+For each question: state clearly + explain why it matters (1 sentence).
+Do NOT ask technical questions. Focus on: Does this serve users well?
+
+## OUTPUT INSTRUCTIONS
+Write your complete output to: plans/{{feature}}/scope-questions/opus-user-advocate.tmp
+Use the Write tool. Do NOT return output to the conversation - write to the file only."
+)
+```
+
+### Sub-task 2: Product Designer (Opus)
+```
+Task(
+  subagent_type="general-purpose",
+  model="opus",
+  run_in_background=true,
+  description="Opus Product Designer",
+  prompt="You are a Product Designer analyzing a feature brief. Write your output to a file.
+
+## Step 1: Read Codebase Context
+First, read plans/{{feature}}/scope-questions/context.md to understand the existing app.
+
+## Feature Brief
+{{brief}}
+
+## Your Perspective: Product Designer
+Think like a UX designer creating wireframes.
+
+**Information Architecture**
+- What information does the user need to see?
+- What's the hierarchy of importance?
+- What can be hidden vs. must be visible?
+
+**Interaction Design**
+- How does the user trigger this feature?
+- What inputs are required vs. optional?
+- What feedback indicates success/failure/progress?
+
+**User Flows**
+- What's the happy path step by step?
+- What's the error path? How do users recover?
+- What about edge cases (empty states, too much data)?
+
+**Visual & Layout**
+- Where does this live in the product?
+- Own screen or fits existing UI?
+- What patterns should it follow?
+
+**States & Transitions**
+- What states can this be in? (loading, empty, error, success)
+- How does the user move between states?
+
+Generate at least 10 questions per category - more if warranted. Do not artificially limit yourself.
+For each question: state clearly + explain why it matters (1 sentence).
+Do NOT ask technical questions. Focus on: What should this LOOK and FEEL like?
+
+## OUTPUT INSTRUCTIONS
+Write your complete output to: plans/{{feature}}/scope-questions/opus-product-designer.tmp
+Use the Write tool. Do NOT return output to the conversation - write to the file only."
+)
+```
+
+### Sub-task 3: Domain Expert (Opus)
+```
+Task(
+  subagent_type="general-purpose",
+  model="opus",
+  run_in_background=true,
+  description="Opus Domain Expert",
+  prompt="You are a Domain Expert analyzing a feature brief. Write your output to a file.
+
+## Step 1: Read Codebase Context
+First, read plans/{{feature}}/scope-questions/context.md to understand the existing app.
+
+## Feature Brief
+{{brief}}
+
+## Your Perspective: Domain Expert
+Think like someone who deeply understands this problem space.
+
+**Domain Concepts**
+- What terminology is assumed but not defined?
+- What concepts are we missing?
+- What relationships between concepts matter?
+
+**Prior Art**
+- What do existing products do?
+- What conventions do users expect?
+- What have others tried that failed?
+
+**Problem Depth**
+- Is this the real problem or a symptom?
+- What related problems will users expect us to solve?
+- What are we explicitly NOT solving?
+
+**Edge Cases (Domain)**
+- What unusual but valid scenarios exist?
+- Regulatory or compliance considerations?
+- Cultural or regional variations?
+
+**Success Criteria**
+- How would we know this succeeded?
+- What does 'good' look like in this domain?
+- What metrics matter to users?
+
+Generate at least 10 questions per category - more if warranted. Do not artificially limit yourself.
+For each question: state clearly + explain why it matters (1 sentence).
+Do NOT ask technical questions. Focus on: Do we understand the PROBLEM?
+
+## OUTPUT INSTRUCTIONS
+Write your complete output to: plans/{{feature}}/scope-questions/opus-domain-expert.tmp
+Use the Write tool. Do NOT return output to the conversation - write to the file only."
+)
+```
+
+## Wait for Completion
+Use TaskOutput with timeout: 600000 for each sub-task to wait for completion.
+"""
+
+[[template]]
+id = "{target}.opus-consolidation"
+title = "Opus 4.5: Consolidate"
+needs = ["{target}.opus-generation"]
+description = """
+**DISPATCH IMMEDIATELY** when opus-generation completes. Do NOT wait for GPT or Gemini.
+
+Dispatch a Haiku background task to consolidate Opus temp files.
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="haiku",
+  run_in_background=true,
+  description="Consolidate Opus questions",
+  prompt="Consolidate three Opus analysis files into one document.
+
+## Input Files (read these first)
+- plans/{{feature}}/scope-questions/opus-user-advocate.tmp
+- plans/{{feature}}/scope-questions/opus-product-designer.tmp
+- plans/{{feature}}/scope-questions/opus-domain-expert.tmp
+
+## Output
+Write to: plans/{{feature}}/scope-questions/opus-questions.md
+
+Use this format:
+```markdown
+# Opus 4.5 Analysis: {{feature}}
+
+## User Advocate Perspective
+[Full content from opus-user-advocate.tmp - preserve all questions]
+
+## Product Designer Perspective
+[Full content from opus-product-designer.tmp - preserve all questions]
+
+## Domain Expert Perspective
+[Full content from opus-domain-expert.tmp - preserve all questions]
+
+## Cross-Perspective Themes (Opus)
+[Identify 3-5 themes that appeared across multiple perspectives]
+```
+
+IMPORTANT: Preserve ALL questions from each file. Do not summarize or truncate.
+After writing opus-questions.md, delete the three .tmp files."
+)
+```
+
+This runs as a background task - do NOT wait for it before starting other consolidations.
+"""
+
+# ============================================================================
+# GPT: GENERATION + CONSOLIDATION
+# ============================================================================
+
+[[template]]
+id = "{target}.gpt-generation"
+title = "GPT 5.2: Generate questions"
+needs = ["{target}.context-gathering"]
+description = """
+Run THREE Codex CLI calls in parallel. Each writes to a temp file.
+
+**IMPORTANT: File paths must be relative to the repository root, NOT under docs/.**
+
+## Context Injection
+Before dispatching, read `plans/{{feature}}/scope-questions/context.md` and inject its contents
+into each HEREDOC prompt under the "## Codebase Context" section.
+
+## Pre-flight
+```bash
+command -v codex >/dev/null 2>&1 && echo "Codex CLI available" || echo "ERROR: Install Codex CLI first"
+```
+
+## Execution
+Run all three in parallel using `run_in_background=true` on the Bash calls.
+
+**Key flag:** `-o <file>` writes ONLY the model's response (no headers, no MCP noise).
+
+### Analysis 1: User Advocate (GPT)
+```bash
+codex exec -m "gpt-5.2-codex" -c reasoning_effort="high" --sandbox read-only \
+  -o plans/{{feature}}/scope-questions/gpt-user-advocate.tmp \
+  "$(cat <<'PROMPT'
+You are a User Advocate analyzing a feature brief.
+
+## Codebase Context
+[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+
+## Feature Brief
+{{brief}}
+
+## Your Perspective: User Advocate
+Think like a user who will use this feature daily.
+
+**User Expectations**
+- What would users assume this feature does?
+- What similar features have they used elsewhere?
+- What would disappoint or confuse them?
+
+**User Journey**
+- What's the user trying to accomplish?
+- What's their emotional state?
+- What happens before and after?
+
+**Edge Cases (User Behavior)**
+- What weird things might users try?
+- What if they use it wrong?
+- What if they change their mind?
+
+**Accessibility & Inclusion**
+- Who might struggle with this?
+- What assumptions are we making?
+
+Generate at least 10 questions per category - more if warranted. Do not artificially limit yourself.
+For each: state clearly + explain why it matters.
+Do NOT ask technical questions.
+PROMPT
+)"
+```
+
+### Analysis 2: Product Designer (GPT)
+```bash
+codex exec -m "gpt-5.2-codex" -c reasoning_effort="high" --sandbox read-only \
+  -o plans/{{feature}}/scope-questions/gpt-product-designer.tmp \
+  "$(cat <<'PROMPT'
+You are a Product Designer analyzing a feature brief.
+
+## Codebase Context
+[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+
+## Feature Brief
+{{brief}}
+
+## Your Perspective: Product Designer
+Think like a UX designer creating wireframes.
+
+**Information Architecture**
+- What information does the user need?
+- Hierarchy of importance?
+- Hidden vs. visible?
+
+**Interaction Design**
+- How does the user trigger this?
+- Required vs. optional inputs?
+- Success/failure/progress feedback?
+
+**User Flows**
+- Happy path step by step?
+- Error path and recovery?
+- Edge cases (empty, overloaded)?
+
+**Visual & Layout**
+- Where does this live?
+- Own screen or existing UI?
+- Patterns to follow?
+
+**States & Transitions**
+- Possible states?
+- Transitions between them?
+
+Generate at least 10 questions per category - more if warranted. Do not artificially limit yourself.
+For each: state clearly + explain why it matters.
+Do NOT ask technical questions.
+PROMPT
+)"
+```
+
+### Analysis 3: Domain Expert (GPT)
+```bash
+codex exec -m "gpt-5.2-codex" -c reasoning_effort="high" --sandbox read-only \
+  -o plans/{{feature}}/scope-questions/gpt-domain-expert.tmp \
+  "$(cat <<'PROMPT'
+You are a Domain Expert analyzing a feature brief.
+
+## Codebase Context
+[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+
+## Feature Brief
+{{brief}}
+
+## Your Perspective: Domain Expert
+Think like someone who deeply understands this problem space.
+
+**Domain Concepts**
+- Terminology assumed but undefined?
+- Missing concepts?
+- Important relationships?
+
+**Prior Art**
+- What do existing products do?
+- Expected conventions?
+- What failed before?
+
+**Problem Depth**
+- Real problem or symptom?
+- Related problems users expect solved?
+- What are we NOT solving?
+
+**Edge Cases (Domain)**
+- Unusual but valid scenarios?
+- Regulatory/compliance?
+- Cultural/regional variations?
+
+**Success Criteria**
+- How to know it succeeded?
+- What does 'good' look like?
+- User-relevant metrics?
+
+Generate at least 10 questions per category - more if warranted. Do not artificially limit yourself.
+For each: state clearly + explain why it matters.
+Do NOT ask technical questions.
+PROMPT
+)"
+```
+
+## Wait for Completion
+Use TaskOutput with timeout: 600000 for each background Bash call.
+"""
+
+[[template]]
+id = "{target}.gpt-consolidation"
+title = "GPT 5.2: Consolidate"
+needs = ["{target}.gpt-generation"]
+description = """
+**DISPATCH IMMEDIATELY** when gpt-generation completes. Do NOT wait for Opus or Gemini.
+
+Dispatch a Haiku background task to consolidate GPT temp files.
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="haiku",
+  run_in_background=true,
+  description="Consolidate GPT questions",
+  prompt="Consolidate three GPT analysis files into one document.
+
+## Input Files (read these first)
+- plans/{{feature}}/scope-questions/gpt-user-advocate.tmp
+- plans/{{feature}}/scope-questions/gpt-product-designer.tmp
+- plans/{{feature}}/scope-questions/gpt-domain-expert.tmp
+
+## Output
+Write to: plans/{{feature}}/scope-questions/gpt-questions.md
+
+Use this format:
+```markdown
+# GPT 5.2 Analysis: {{feature}}
+
+## User Advocate Perspective
+[Full content from gpt-user-advocate.tmp - preserve all questions]
+
+## Product Designer Perspective
+[Full content from gpt-product-designer.tmp - preserve all questions]
+
+## Domain Expert Perspective
+[Full content from gpt-domain-expert.tmp - preserve all questions]
+
+## Cross-Perspective Themes (GPT)
+[Identify 3-5 themes that appeared across multiple perspectives]
+```
+
+IMPORTANT: Preserve ALL questions from each file. Do not summarize or truncate.
+After writing gpt-questions.md, delete the three .tmp files."
+)
+```
+
+This runs as a background task - do NOT wait for it before starting other consolidations.
+"""
+
+# ============================================================================
+# GEMINI: GENERATION + CONSOLIDATION
+# ============================================================================
+
+[[template]]
+id = "{target}.gemini-generation"
+title = "Gemini 3 Pro: Generate questions"
+needs = ["{target}.context-gathering"]
+description = """
+Run THREE Gemini CLI calls in parallel. Each writes to a temp file.
+
+**IMPORTANT: File paths must be relative to the repository root, NOT under docs/.**
+
+## Context Injection
+Before dispatching, read `plans/{{feature}}/scope-questions/context.md` and inject its contents
+into each prompt under the "## Codebase Context" section.
+
+## Pre-flight
+```bash
+command -v gemini >/dev/null 2>&1 && echo "Gemini CLI available" || echo "ERROR: Install Gemini CLI first"
+```
+
+## Execution
+Run all three in parallel using `run_in_background=true` on the Bash calls.
+
+**Key flags:** `-o text` outputs clean text format, `2>/dev/null` suppresses stderr startup messages.
+
+### Analysis 1: User Advocate (Gemini)
+```bash
+gemini "$(cat <<'PROMPT'
+You are a User Advocate analyzing a feature brief.
+
+## Codebase Context
+[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+
+## Feature Brief
+{{brief}}
+
+## Your Perspective: User Advocate
+Think like a user who will use this feature daily.
+
+**User Expectations**
+- What would users assume this feature does?
+- What similar features have they used elsewhere?
+- What would disappoint or confuse them?
+
+**User Journey**
+- What's the user trying to accomplish?
+- What's their emotional state?
+- What happens before and after?
+
+**Edge Cases (User Behavior)**
+- What weird things might users try?
+- What if they use it wrong?
+- What if they change their mind?
+
+**Accessibility & Inclusion**
+- Who might struggle with this?
+- What assumptions are we making?
+
+Generate at least 10 questions per category - more if warranted. Do not artificially limit yourself.
+For each: state clearly + explain why it matters.
+Do NOT ask technical questions.
+PROMPT
+)" --model gemini-3-pro-preview --sandbox -y -o text 2>/dev/null > plans/{{feature}}/scope-questions/gemini-user-advocate.tmp
+```
+
+### Analysis 2: Product Designer (Gemini)
+```bash
+gemini "$(cat <<'PROMPT'
+You are a Product Designer analyzing a feature brief.
+
+## Codebase Context
+[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+
+## Feature Brief
+{{brief}}
+
+## Your Perspective: Product Designer
+Think like a UX designer creating wireframes.
+
+**Information Architecture**
+- What information does the user need?
+- Hierarchy of importance?
+- Hidden vs. visible?
+
+**Interaction Design**
+- How does the user trigger this?
+- Required vs. optional inputs?
+- Success/failure/progress feedback?
+
+**User Flows**
+- Happy path step by step?
+- Error path and recovery?
+- Edge cases (empty, overloaded)?
+
+**Visual & Layout**
+- Where does this live?
+- Own screen or existing UI?
+- Patterns to follow?
+
+**States & Transitions**
+- Possible states?
+- Transitions between them?
+
+Generate at least 10 questions per category - more if warranted. Do not artificially limit yourself.
+For each: state clearly + explain why it matters.
+Do NOT ask technical questions.
+PROMPT
+)" --model gemini-3-pro-preview --sandbox -y -o text 2>/dev/null > plans/{{feature}}/scope-questions/gemini-product-designer.tmp
+```
+
+### Analysis 3: Domain Expert (Gemini)
+```bash
+gemini "$(cat <<'PROMPT'
+You are a Domain Expert analyzing a feature brief.
+
+## Codebase Context
+[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+
+## Feature Brief
+{{brief}}
+
+## Your Perspective: Domain Expert
+Think like someone who deeply understands this problem space.
+
+**Domain Concepts**
+- Terminology assumed but undefined?
+- Missing concepts?
+- Important relationships?
+
+**Prior Art**
+- What do existing products do?
+- Expected conventions?
+- What failed before?
+
+**Problem Depth**
+- Real problem or symptom?
+- Related problems users expect solved?
+- What are we NOT solving?
+
+**Edge Cases (Domain)**
+- Unusual but valid scenarios?
+- Regulatory/compliance?
+- Cultural/regional variations?
+
+**Success Criteria**
+- How to know it succeeded?
+- What does 'good' look like?
+- User-relevant metrics?
+
+Generate at least 10 questions per category - more if warranted. Do not artificially limit yourself.
+For each: state clearly + explain why it matters.
+Do NOT ask technical questions.
+PROMPT
+)" --model gemini-3-pro-preview --sandbox -y -o text 2>/dev/null > plans/{{feature}}/scope-questions/gemini-domain-expert.tmp
+```
+
+## Wait for Completion
+Use TaskOutput with timeout: 600000 for each background Bash call.
+"""
+
+[[template]]
+id = "{target}.gemini-consolidation"
+title = "Gemini 3 Pro: Consolidate"
+needs = ["{target}.gemini-generation"]
+description = """
+**DISPATCH IMMEDIATELY** when gemini-generation completes. Do NOT wait for Opus or GPT.
+
+Dispatch a Haiku background task to consolidate Gemini temp files.
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="haiku",
+  run_in_background=true,
+  description="Consolidate Gemini questions",
+  prompt="Consolidate three Gemini analysis files into one document.
+
+## Input Files (read these first)
+- plans/{{feature}}/scope-questions/gemini-user-advocate.tmp
+- plans/{{feature}}/scope-questions/gemini-product-designer.tmp
+- plans/{{feature}}/scope-questions/gemini-domain-expert.tmp
+
+## Output
+Write to: plans/{{feature}}/scope-questions/gemini-questions.md
+
+Use this format:
+```markdown
+# Gemini 3 Pro Analysis: {{feature}}
+
+## User Advocate Perspective
+[Full content from gemini-user-advocate.tmp - preserve all questions]
+
+## Product Designer Perspective
+[Full content from gemini-product-designer.tmp - preserve all questions]
+
+## Domain Expert Perspective
+[Full content from gemini-domain-expert.tmp - preserve all questions]
+
+## Cross-Perspective Themes (Gemini)
+[Identify 3-5 themes that appeared across multiple perspectives]
+```
+
+IMPORTANT: Preserve ALL questions from each file. Do not summarize or truncate.
+After writing gemini-questions.md, delete the three .tmp files."
+)
+```
+
+This runs as a background task - do NOT wait for it before starting other consolidations.
+"""
+
+# ============================================================================
+# FINAL SYNTHESIS
+# ============================================================================
+
+[[template]]
+id = "{target}.synthesis"
+title = "Synthesize 3x3 matrix into question backlog"
+needs = ["{target}.opus-consolidation", "{target}.gpt-consolidation", "{target}.gemini-consolidation"]
+description = """
+Synthesize all three model documents into a final prioritized question backlog.
+
+## Input Files
+- plans/{{feature}}/scope-questions/opus-questions.md
+- plans/{{feature}}/scope-questions/gpt-questions.md
+- plans/{{feature}}/scope-questions/gemini-questions.md
+
+## Synthesis Process
+
+### 1. Cross-Model Comparison by Perspective
+For EACH perspective, compare what all three models said:
+
+**User Advocate:**
+- What did all three models flag? (high confidence)
+- What did only one model flag? (worth attention)
+- Where did models disagree?
+
+**Product Designer:**
+- [Same analysis]
+
+**Domain Expert:**
+- [Same analysis]
+
+### 2. Deduplicate and Categorize
+**CRITICAL: Every UNIQUE question must appear. No questions lost to deduplication.**
+
+**Deduplication rules:**
+- When multiple models ask variations of the same question, MERGE them into one entry
+- Keep the most comprehensive/well-phrased version
+- Attribute to ALL models that raised it (e.g., "Opus, GPT, Gemini")
+- A question appearing in 3 models = 1 entry with triple attribution, not 3 entries
+
+Assign each unique question to ONE tier:
+- P0 (Must answer): All 3 models flagged it, OR critical impact
+- P1 (Should answer): 2 models flagged it, OR moderate impact
+- P2 (Good to have): 1 model flagged it, design-relevant
+- P3 (Parking lot): Technical questions that snuck in
+
+### 3. Preserve Model Attribution
+For EVERY question, note which model(s) raised it. This preserves valuable signal about reasoning diversity.
+
+### 4. Track Counts
+Count questions at each stage to verify nothing is lost:
+- Raw questions from all 9 analyses: [X]
+- After deduplication (merging similar): [Y]
+- P0 + P1 + P2 + P3 = [Y] (must match unique count)
+
+## Output
+Create `plans/{{feature}}/scope-questions/questions.md` with the synthesized question backlog.
+
+Use GLOBAL sequential numbering across all questions (1, 2, 3, ... N).
+Do NOT restart numbering within each section or priority tier.
+
+## Quality Check
+- [ ] ZERO QUESTION LOSS: P0 + P1 + P2 + P3 count equals unique question count
+- [ ] GLOBAL SEQUENTIAL NUMBERING: Questions numbered 1 to N across ALL tiers
+- [ ] Similar questions merged into single entry with best phrasing
+- [ ] Attribution shows ALL models that raised each question
+"""

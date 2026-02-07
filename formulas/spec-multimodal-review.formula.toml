@@ -1,0 +1,41 @@
+# Multimodal Spec Review Formula
+#
+# Multi-LLM review of validated specs for gaps, inconsistencies, and codebase mismatches.
+# Runs all 3 models (Opus, GPT, Gemini) in parallel with all review categories.
+#
+# Usage:
+#   gt sling spec-multimodal-review dypt/crew/neo \
+#     --var feature="command-palette"
+
+description = """
+Multi-LLM spec review using 3 models in parallel to catch gaps and inconsistencies.
+
+Autonomous version of review-documentation skill:
+- All 3 models always (Opus 4.5, GPT 5.2 Codex, Gemini 3 Pro)
+- All review categories always (no configuration)
+- Skips CLI preflight checks (assumes they work)
+- Reuses existing context.md if available from step 0
+
+This is part of the design-to-implementation pipeline (step 3).
+"""
+formula = "spec-multimodal-review"
+type = "workflow"
+version = 3
+
+[vars]
+[vars.feature]
+description = "Feature name (used for input/output paths)"
+required = true
+
+# Placeholder step that will be expanded
+[[steps]]
+id = "review"
+title = "Run multimodal review process"
+description = "This step is expanded into the full 3-model review workflow."
+
+# Composition: expand the placeholder with the expansion formula
+[compose]
+
+[[compose.expand]]
+target = "review"
+with = "spec-multimodal-review-expansion"

@@ -1,0 +1,689 @@
+# Multimodal Spec Review - EXPANSION VERSION
+#
+# This is the expansion-type version that can be composed into other workflows.
+# Use spec-multimodal-review for standalone execution.
+#
+# Multi-LLM review of validated specs for gaps, inconsistencies, and codebase mismatches.
+# Runs all 3 models (Opus, GPT, Gemini) in parallel with all review categories.
+
+description = """
+EXPANSION: Multi-LLM spec review using 3 models in parallel to catch gaps and inconsistencies.
+
+This is an expansion-type formula for composition into other workflows.
+It transforms a single step into the full multimodal review process.
+
+Autonomous version of review-documentation skill:
+- All 3 models always (Opus 4.5, GPT 5.2 Codex, Gemini 3 Pro)
+- All review categories always (no configuration)
+- Skips CLI preflight checks (assumes they work)
+- Reuses existing context.md if available from step 0
+
+Use spec-multimodal-review for standalone execution.
+"""
+formula = "spec-multimodal-review-expansion"
+type = "expansion"
+version = 1
+
+# Note: vars are inherited from the parent workflow that expands this
+
+# ============================================================================
+# STEP 1: GATHER CONTEXT
+# ============================================================================
+
+[[template]]
+id = "{target}.gather-context"
+title = "Gather codebase context"
+description = """
+Check for existing context or gather fresh context via Haiku.
+
+## Check for Existing Context
+
+Look for: `plans/{{feature}}/scope-questions/context.md`
+
+**If context.md exists:**
+- Skip Haiku context gathering
+- Read the existing context file
+- Proceed to dispatch-reviewers with this context
+
+**If context.md does NOT exist:**
+- Dispatch Haiku to gather codebase context
+- Save result for use in dispatch step
+
+## Haiku Context Gathering (if needed)
+
+```
+Task(
+  subagent_type="Explore",
+  model="haiku",
+  prompt="Gather codebase context relevant to reviewing this spec.
+
+Spec location: plans/{{feature}}/spec.md
+
+Target codebase: [current working directory]
+
+Return a structured summary of:
+1. Relevant source files (paths + brief description)
+2. Existing patterns/conventions in the codebase
+3. Integration points the spec references
+4. Any existing tests or documentation
+
+Output format:
+## Relevant Files
+- /path/to/file.ts - Description
+
+## Patterns & Conventions
+- Pattern 1
+- Pattern 2
+
+## Integration Points
+- Point 1
+- Point 2
+
+Be thorough but fast. Context only, don't read full file contents."
+)
+```
+
+## Output
+
+- Context summary (either from existing file or fresh Haiku gather)
+- Ready to proceed to dispatch
+"""
+
+# ============================================================================
+# STEP 2: DISPATCH REVIEWERS
+# ============================================================================
+
+[[template]]
+id = "{target}.dispatch-reviewers"
+title = "Dispatch 3 parallel reviewers"
+needs = ["{target}.gather-context"]
+description = """
+Dispatch all 3 models in parallel to review the spec.
+
+## Required Models (DO NOT SUBSTITUTE)
+
+| Role | Model | CLI Command |
+|------|-------|-------------|
+| Claude | Opus 4.5 | Task(model="opus") |
+| OpenAI | GPT 5.2 | codex exec -m "gpt-5.2-codex" |
+| Google | Gemini 3 Pro | gemini --model gemini-3-pro-preview |
+
+Do NOT use o3, o4-mini, Gemini 2.5, or any other model. These specific
+models were chosen for review diversity. Using the wrong model degrades
+the multi-model consensus value.
+
+## Pre-Read the Spec
+
+Read `plans/{{feature}}/spec.md` and include it verbatim in all agent prompts.
+
+## Review Brief (All Categories)
+
+Build the review brief with ALL categories enabled:
+
+```
+You are reviewing a design specification for accuracy, completeness, and quality.
+
+## IMPORTANT: Review Only - No Changes
+
+**DO NOT modify any files during this review phase.**
+
+This is a READ-ONLY review. Your role is to:
+- Read and analyze the spec
+- Compare spec against codebase
+- Identify gaps and issues
+- Report findings
+
+Any actual fixes will be made after user reviews findings.
+Do NOT use Edit, Write, or any file modification tools.
+
+## Verification Requirement
+
+**CRITICAL: Do NOT make assumptions about how the codebase works. VERIFY by reading code.**
+
+Before stating how something works:
+1. Read the actual code that implements it
+2. Quote specific lines/functions that prove your assertion
+3. If you cannot verify by reading code, mark as UNVERIFIED
+
+## DO CHECK - All Categories:
+
+### Codebase Match
+- Does the spec match what's in the codebase?
+- Are all file paths mentioned correct and existing?
+- Are referenced components/hooks/functions real?
+
+### Cross-Document Consistency
+- Is the spec internally consistent?
+- Does it align with other project documentation (CLAUDE.md, README, etc.)?
+
+### API & Interface Assumptions
+- Are assumptions about APIs, libraries, external services correct?
+- Use Context7 to verify if unsure about library usage.
+
+### Security Concerns
+- Missing auth, exposed secrets, injection risks?
+- OWASP top 10 issues?
+
+### Design Quality
+- Is the design appropriate? Over/under-engineered?
+- YAGNI - unnecessary features or complexity?
+- DRY - duplication or missed reuse opportunities?
+
+### TDD Alignment
+- Does the spec account for testing?
+- Are test scenarios defined for edge cases?
+
+### Project Standards
+- Alignment with documented conventions?
+- Follows existing patterns in the codebase?
+
+### Architectural Consistency
+- Fits existing architecture?
+- Consistent with established patterns?
+
+### Error Handling & Edge Cases
+- Failure scenarios addressed?
+- Invalid inputs, missing data handled?
+
+### Performance
+- N+1 queries, unbounded loops, missing pagination?
+- Large payloads, inefficient algorithms?
+
+### Data & Schema Validity
+- Proposed structures match existing schemas?
+- Migration considerations addressed?
+
+### Acceptance Criteria
+- Are acceptance criteria concrete and testable?
+- Any missing scenarios?
+
+## Output Format
+
+Return a RISK-WEIGHTED bullet list. Order by severity (CRITICAL > HIGH > MEDIUM > LOW).
+
+For each issue:
+- **[SEVERITY] Issue Title**
+  - What: Description of the problem
+  - Where: Section/component affected
+  - Evidence: What you found that indicates this issue
+  - Recommendation: Specific fix
+
+End with a brief summary of total issues by severity.
+```
+
+## Dispatch Sequence
+
+**Step 1: Write GPT and Gemini prompts to temp files (sync, fast)**
+
+```bash
+cat > /tmp/gpt_review_prompt.txt <<'EOF'
+[Review brief above]
+
+## Spec to Review
+
+[PASTE SPEC.MD CONTENTS HERE]
+
+## Codebase Context
+
+[PASTE CONTEXT HERE]
+
+Target codebase: [current working directory]
+
+## Shell Command Best Practices
+
+Always wrap file paths with special characters in single quotes:
+- Parentheses: `(dashboard)`
+- Brackets: `[slug]`
+
+## Time Management
+
+Take 10-15 minutes. Thoroughness over speed.
+EOF
+
+cat > /tmp/gemini_review_prompt.txt <<'EOF'
+[Same content as GPT prompt]
+EOF
+```
+
+**Step 2: Dispatch ALL reviewers IN PARALLEL with run_in_background: true**
+
+```
+# In ONE message, dispatch all 3:
+
+Task(
+  subagent_type="general-purpose",
+  model="opus",
+  run_in_background=true,
+  prompt="[Review brief + spec + context]"
+)
+
+Bash(
+  command="codex exec -m 'gpt-5.2-codex' -c reasoning_effort='high' --sandbox workspace-write \"$(cat /tmp/gpt_review_prompt.txt)\"",
+  run_in_background=true,
+  timeout=900000
+)
+
+Bash(
+  command="gemini \"$(cat /tmp/gemini_review_prompt.txt)\" --model gemini-3-pro-preview --sandbox -y && rm /tmp/gemini_review_prompt.txt",
+  run_in_background=true,
+  timeout=900000
+)
+```
+
+**CRITICAL: All 3 calls MUST be in ONE message with run_in_background: true**
+
+## Handling Failures
+
+If GPT or Gemini fails (rate limits, errors, timeout):
+1. **Notify the user explicitly** - don't silently proceed
+2. Note which model failed and why
+3. Continue with remaining models
+4. Record the failure in the synthesis output
+
+**Never silently fall back to fewer agents.**
+
+## Collect Results
+
+After dispatching, collect ALL results in ONE message:
+
+```
+TaskOutput(task_id="<opus_task_id>", block=true, timeout=900000)
+TaskOutput(task_id="<gpt_task_id>", block=true, timeout=900000)
+TaskOutput(task_id="<gemini_task_id>", block=true, timeout=900000)
+```
+
+Use 900000ms (15 min) timeout. Don't give up early.
+"""
+
+# ============================================================================
+# STEP 3: SYNTHESIZE RESULTS
+# ============================================================================
+
+[[template]]
+id = "{target}.synthesize"
+title = "Synthesize and compare results"
+needs = ["{target}.dispatch-reviewers"]
+description = """
+Synthesize results from all models into a unified review.
+
+## Process
+
+### 1. Deduplicate Issues
+
+Create a merged list, removing duplicates where multiple models identified the same issue.
+Keep the best description/evidence from whichever model articulated it best.
+
+### 2. Create Model Comparison Table
+
+Show **actual findings** per model, not just severity levels:
+
+| # | Issue | Opus 4.5 | GPT 5.2 | Gemini 3 | Agree? |
+|---|-------|----------|---------|----------|--------|
+| 1 | [Title] | [What Opus found + recommendation] | [What GPT found + recommendation] | [What Gemini found] | Yes/Partial/No |
+
+**Table Guidelines:**
+- Show the actual analysis each model provided, not just "HIGH" or "✓"
+- If a model didn't find the issue, mark as "-" or "Not identified"
+- Keep cells reasonably concise but include the key insight
+- Include only columns for models that succeeded
+
+### 3. Complete Issues List by Severity
+
+After the comparison table, provide a **complete list of all issues grouped by severity**.
+For each issue, include any **ambiguities** that need human decision:
+
+```markdown
+## All Issues by Severity
+
+### CRITICAL (X issues)
+
+**1. [Issue Title]**
+- **What:** [Full description]
+- **Where:** [Location in spec/codebase]
+- **Evidence:** [What was found]
+- **Recommendation:** [Proposed fix]
+- **Ambiguity:** [If any decision needed, describe it here. Otherwise omit.]
+
+### HIGH (X issues)
+
+**2. [Issue Title]**
+- **What:** ...
+- **Ambiguity:** What should the migration timeline be - immediate removal or gradual deprecation?
+
+[Continue for all issues...]
+```
+
+This gives the user full context to make informed decisions about which issues to address.
+
+### 4. Reasoning Section
+
+For each issue where models disagree:
+- Why you agree or disagree with each model's assessment
+- Which assessment is more accurate and why
+- Final recommended action
+
+### 5. Remaining Ambiguities Summary
+
+Consolidate all ambiguities from the issues list:
+- Unresolved questions needing human input
+- Reference which issue each ambiguity relates to
+- Note any dependencies between ambiguities
+
+## Output Format
+
+```markdown
+# Spec Review: {{feature}}
+
+## Review Configuration
+
+- **Spec:** plans/{{feature}}/spec.md
+- **Models Used:** [List which succeeded, note any failures]
+- **Categories:** All (Codebase Match, Design Quality, Security, etc.)
+- **Context Source:** [Existing context.md | Fresh Haiku gather]
+
+## Model Comparison
+
+| # | Issue | Opus 4.5 | GPT 5.2 | Gemini 3 | Agree? |
+|---|-------|----------|---------|----------|--------|
+| 1 | [Title] | [Actual finding + recommendation] | [Actual finding] | [Finding or -] | Yes/No |
+| 2 | ... | ... | ... | ... | ... |
+
+## All Issues by Severity
+
+### CRITICAL (X issues)
+
+**1. [Issue Title]**
+- **What:** [Full description of the problem]
+- **Where:** [Spec section / codebase location]
+- **Evidence:** [What was found that indicates this issue]
+- **Recommendation:** [Specific fix]
+- **Ambiguity:** [Decision needed, if any]
+
+### HIGH (X issues)
+
+**2. [Issue Title]**
+- **What:** ...
+- **Where:** ...
+- **Evidence:** ...
+- **Recommendation:** ...
+- **Ambiguity:** [If applicable]
+
+### MEDIUM (X issues)
+
+[Continue pattern...]
+
+### LOW (X issues)
+
+[Continue pattern...]
+
+## Reasoning
+
+[For issues where models disagree, explain which assessment is correct and why]
+
+## Ambiguities Summary
+
+| # | Issue | Ambiguity | Options |
+|---|-------|-----------|---------|
+| 1 | [Issue title] | [Decision needed] | [A vs B vs C] |
+| 2 | ... | ... | ... |
+
+## Summary
+
+- **Total Issues:** X (Y critical, Z high, W medium, V low)
+- **Ambiguities Requiring Decision:** X
+- **Model Agreement Rate:** X%
+- **Models That Failed:** [List any, or "None"]
+```
+
+## Save Review
+
+Write synthesis to: `plans/{{feature}}/spec-review.md`
+"""
+
+# ============================================================================
+# STEP 4: PRESENT FINDINGS
+# ============================================================================
+
+[[template]]
+id = "{target}.present-findings"
+title = "Present findings and gate"
+needs = ["{target}.synthesize"]
+description = """
+Present the synthesized findings to the user and wait for acknowledgment.
+
+## Present Summary
+
+Show a detailed summary in the terminal so the user can make an informed decision
+without needing to open the review file:
+
+```
+## Spec Review Complete
+
+**Feature:** {{feature}}
+**Models:** [X of 3 succeeded] [list which models]
+
+### Issues by Severity
+
+**CRITICAL ([N]):**
+- [One-line description of each critical issue]
+
+**HIGH ([N]):**
+- [One-line description of each high issue]
+
+**MEDIUM ([N]):** [count only, don't list]
+**LOW ([N]):** [count only, don't list]
+
+### Ambiguities Requiring Decision ([N])
+
+| # | Topic | Decision Needed |
+|---|-------|-----------------|
+| 1 | [Topic] | [Brief description] |
+
+### Model Agreement: X%
+
+Full review saved to: plans/{{feature}}/spec-review.md
+```
+
+## Gate
+
+After presenting:
+
+> "Review complete. Say **'go'** when you're ready to discuss next steps, or 'skip' to proceed without changes."
+
+**Wait for user response. Do not proceed until they acknowledge.**
+
+## If User Says "skip"
+
+- Note that no changes will be made
+- Proceed directly to commit step (commit the review file only)
+
+## If User Says "go"
+
+- Proceed to action-findings step
+"""
+
+# ============================================================================
+# STEP 5: ACTION FINDINGS
+# ============================================================================
+
+[[template]]
+id = "{target}.action-findings"
+title = "Action the findings"
+needs = ["{target}.present-findings"]
+description = """
+Guide user through selecting which findings to address, then auto-update the spec.
+
+**Skip this step if user said "skip" at the gate.**
+
+## Select Findings to Address
+
+Present the ambiguities summary table from the review, then ask:
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "Which issues should we address in the spec update?",
+    "header": "Issues",
+    "options": [
+      {"label": "All Issues (Recommended)", "description": "Address all [X] identified issues"},
+      {"label": "Critical & High only", "description": "Focus on [Y] most severe issues"},
+      {"label": "Customize", "description": "Select specific issues to address"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+**If "Customize":** Show multiselect of individual issues from the severity list.
+
+## Resolve Ambiguities
+
+For each ambiguity in the selected issues, present ONE at a time:
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "[Ambiguity description from issue]. How should this be resolved?",
+    "header": "[Issue Title]",
+    "options": [
+      {"label": "[Recommended approach] (Recommended)", "description": "Why recommended"},
+      {"label": "[Alternative 1]", "description": "Trade-offs"},
+      {"label": "[Alternative 2]", "description": "Trade-offs"},
+      {"label": "Defer - decide during implementation", "description": "Leave as open question"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+Record each resolution.
+
+## Auto-Execute Spec Update
+
+**No action selection question needed** - always update the spec with:
+
+1. **Add "Multi-Model Review" section** (if not present):
+   ```markdown
+   ## Multi-Model Review
+
+   **Reviewed:** [date]
+   **Models:** Opus 4.5, GPT 5.2 [, Gemini 3 if succeeded]
+   **Issues Found:** X (Y critical, Z high, W medium, V low)
+
+   ### Findings Addressed
+
+   | # | Issue | Resolution |
+   |---|-------|------------|
+   | 1 | [Issue title] | [How it was resolved or clarified] |
+   | 2 | ... | ... |
+
+   ### Ambiguities Resolved
+
+   | Topic | Decision | Rationale |
+   |-------|----------|-----------|
+   | [Topic] | [What was decided] | [Why] |
+
+   ### Deferred Items
+
+   - [Any issues or ambiguities deferred to implementation]
+   ```
+
+2. **Update affected spec sections** with clarifications based on findings
+
+3. **Mark resolved Open Questions** if any findings addressed them
+
+## Verify Updates
+
+After modifications:
+1. Re-read spec.md
+2. Confirm changes applied correctly
+3. Summarize what changed
+
+## Output
+
+```
+## Spec Updated
+
+**Issues addressed:** X of Y
+**Ambiguities resolved:** X of Y
+**Deferred to implementation:** X
+
+**Sections updated:**
+- [List of spec sections that were modified]
+
+**Changes summary:**
+- [Brief description of key changes]
+```
+"""
+
+# ============================================================================
+# STEP 6: COMMIT
+# ============================================================================
+
+[[template]]
+id = "{target}.commit"
+title = "Commit review and any updates"
+needs = ["{target}.action-findings"]
+description = """
+Commit the review file and any spec updates.
+
+## Files to Commit
+
+- `plans/{{feature}}/spec-review.md` - The review document (always)
+- `plans/{{feature}}/spec.md` - If updated with clarifications
+
+## Commit Process
+
+1. Stage files:
+   ```bash
+   git add plans/{{feature}}/spec-review.md
+   git add plans/{{feature}}/spec.md  # if modified
+   ```
+
+2. Create commit:
+   ```bash
+   git commit -m "feat({{feature}}): multi-model spec review
+
+   3-model review (Opus, GPT, Gemini) of {{feature}} spec.
+
+   Issues found: [X] ([breakdown by severity])
+   Model agreement: [X]%
+   Actions taken: [summary]
+
+   Co-Authored-By: Claude <agent>"
+   ```
+
+3. Run beads sync:
+   ```bash
+   bd sync
+   ```
+
+4. Push to remote:
+   ```bash
+   git push
+   ```
+
+## Output
+
+```
+## Review Committed
+
+**Files committed:**
+- plans/{{feature}}/spec-review.md
+- plans/{{feature}}/spec.md (if updated)
+
+**Commit:** [short hash]
+**Pushed to:** origin/[branch]
+
+Ready for next pipeline step (implementation planning).
+```
+
+## Quality Check
+
+- [ ] All 3 models dispatched in parallel (or failures noted)
+- [ ] Results synthesized with comparison table
+- [ ] Review saved to spec-review.md
+- [ ] User acknowledged findings ("go" or "skip")
+- [ ] Actions executed (if any selected)
+- [ ] Changes committed and pushed
+"""

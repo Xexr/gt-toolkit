@@ -1,0 +1,780 @@
+# Design Spec Brainstorm - EXPANSION VERSION
+#
+# This is the expansion-type version that can be composed into other workflows.
+# Use spec-brainstorm for standalone execution.
+#
+# Turns ideas into validated design specs through smart dialogue.
+# If scope questions exist from a previous multimodal analysis, uses them
+# to accelerate brainstorming.
+
+description = """
+EXPANSION: Turn ideas into fully formed validated design specs through smart dialogue.
+
+This is an expansion-type formula for composition into other workflows.
+It transforms a single step into the full brainstorming process.
+
+Use spec-brainstorm for standalone execution.
+"""
+formula = "spec-brainstorm-expansion"
+type = "expansion"
+version = 1
+
+# Note: vars are inherited from the parent workflow that expands this
+
+# ============================================================================
+# STEP 1: KICKOFF - Check for questions and present options
+# ============================================================================
+
+[[template]]
+id = "{target}.kickoff"
+title = "Initialize brainstorming session"
+description = """
+Check for prior scope questions and present session options to user.
+
+## Check for Questions File
+
+Look for: `plans/{{feature}}/scope-questions/questions.md`
+
+Also check for codebase context: `plans/{{feature}}/scope-questions/context.md`
+
+---
+
+## If Questions File Found
+
+Present this summary to the user:
+
+```
+## Scope Questions Found
+
+I found a questions file from a previous multimodal scope analysis.
+
+**Feature:** {{feature}}
+
+**Brief:** {{brief}}
+
+### Question Summary
+
+| Priority | Count | Description |
+|----------|-------|-------------|
+| P0 | [N] | Must answer before spec |
+| P1 | [N] | Should answer during spec |
+| P2 | [N] | Good to have |
+| P3 | [N] | Parking lot / deferred |
+| **Total** | [N] | |
+
+### Cross-Model Consensus Themes
+[Extract and list 3-5 high-consensus themes from the questions file]
+
+---
+
+**How would you like to proceed?**
+```
+
+Then use AskUserQuestion to let user choose scope:
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "Which questions should we address in this brainstorming session?",
+    "header": "Scope",
+    "options": [
+      {"label": "Critical only (P0)", "description": "[N] must-answer questions - fastest path to spec"},
+      {"label": "High priority (P0 + P1) (Recommended)", "description": "[N] questions - good balance of speed and thoroughness"},
+      {"label": "Comprehensive (P0 + P1 + P2)", "description": "[N] questions - thorough coverage"},
+      {"label": "Everything", "description": "All [N] questions including parking lot items"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+Record the user's selection for use in subsequent steps.
+
+---
+
+## If No Questions File Found
+
+Present this message:
+
+```
+## No Scope Questions Found
+
+No questions file found at `plans/{{feature}}/scope-questions/questions.md`.
+
+This means either:
+- The multimodal scope questions step wasn't run for this feature
+- You're running this brainstorming skill standalone
+
+**Proceeding with standard brainstorming** - I'll explore the idea from scratch,
+asking questions as we go to understand requirements.
+
+---
+
+**Feature:** {{feature}}
+
+**Brief:** {{brief}}
+
+Let's begin. First, let me check out the current project state...
+```
+
+Then proceed directly to the brainstorm-session step using standard mode
+(no question triage - explore from scratch like the base brainstorming skill).
+
+---
+
+## Outputs
+- Determine session mode: "with-questions" or "standard"
+- If with-questions: record selected scope (p0 | p0p1 | p0p1p2 | all)
+- Proceed to appropriate next step
+"""
+
+# ============================================================================
+# STEP 2: QUESTION TRIAGE (only if questions file exists)
+# ============================================================================
+
+[[template]]
+id = "{target}.question-triage"
+title = "Triage scope questions"
+needs = ["{target}.kickoff"]
+description = """
+**Skip this step if no questions file was found** - proceed directly to brainstorm-session.
+
+Analyze questions based on user's selected scope and categorize them.
+
+## Inputs
+- plans/{{feature}}/scope-questions/questions.md
+- plans/{{feature}}/scope-questions/context.md (codebase context)
+- User's selected question scope from kickoff step
+
+## Process
+
+### 1. Load Questions for Selected Scope
+
+Based on user selection, load relevant priority tiers:
+- "Critical only (P0)" → Load P0 questions only
+- "High priority (P0 + P1)" → Load P0 and P1 questions
+- "Comprehensive (P0 + P1 + P2)" → Load P0, P1, and P2 questions
+- "Everything" → Load all questions including P3
+
+### 1b. Normalize Question IDs
+
+**IMPORTANT: Assign sequential numbers to ALL questions regardless of original labeling.**
+
+The source questions.md may have inconsistent IDs (e.g., "Q1", "Q-CU2", "Question 5.3").
+Normalize to a single sequential numbering scheme:
+
+1. Assign each question a sequential number (1, 2, 3, ... N)
+2. Order by: P0 first, then P1, then P2, then P3 (within each tier, preserve original order)
+3. Create a mapping for traceability: `Q1 (was: Q-CU2 in source)`
+4. Use ONLY the new sequential numbers in all triage output and subsequent steps
+
+This ensures consistent referencing throughout the brainstorming dialogue.
+
+### 2. Categorize Each Question
+
+For each question in scope, determine if it's auto-answerable or a branch point:
+
+**Auto-answerable** (note these, don't ask human):
+- Clear industry best practice exists (cite which tools do this)
+- Technical constraint makes answer obvious
+- Codebase context (from context.md) implies the answer
+- Answering another question logically implies this one
+- Universal user expectation (would be surprising to do otherwise)
+
+**Branch point** (must ask human):
+- Multiple valid approaches with real tradeoffs
+- Depends on business/brand context only user knows
+- Preference question with no objectively "right" answer
+- High impact decision - wrong assumption would be costly
+- No clear industry consensus
+
+### 2b. Verify Auto-Answers Against Codebase
+
+**CRITICAL: Do NOT assume codebase behavior - VERIFY IT.**
+
+For any auto-answer that references codebase context (e.g., "the DB stores X",
+"the existing function does Y"), you MUST:
+
+1. Read the actual source file to verify the claim
+2. Note the file path and line number as evidence
+3. If the code contradicts your assumption, reclassify as a branch point
+
+Auto-answers based purely on industry best practice (not codebase) do not
+need verification.
+
+### 3. Identify Question Dependencies
+
+Map which questions depend on others:
+- "If Q5 is answered as X, then Q8 is automatically Y"
+- "Q12 only matters if Q7 was answered as Z"
+
+### 4. Build Interview Plan
+
+Order questions to maximize cascading:
+- Start with questions that unlock the most dependencies
+- Group related questions for conversational flow
+- Estimate total human questions needed
+
+## Output
+Write to: plans/{{feature}}/question-triage.md
+
+```markdown
+# Question Triage: {{feature}}
+
+**Scope selected:** [P0 only | P0+P1 | P0+P1+P2 | All]
+**Questions in scope:** [N]
+**Auto-answerable:** [X]
+**Branch points for human:** [Y]
+
+---
+
+## Auto-Answerable Questions
+
+These questions have clear answers based on best practices, codebase context,
+or logical inference. They are noted in the spec without asking you.
+
+| # | Question | Proposed Answer | Source |
+|---|----------|-----------------|--------|
+| 7 | How are dates handled in templates? | Relative to instantiation | Industry standard (Asana, Notion, Linear all do this) |
+| 13 | Do task statuses reset when template applied? | Yes, to "Not Started" | Universal expectation - users want fresh checklists |
+| 19 | Are internal dependencies preserved? | Yes | Core workflow value - losing them breaks the feature |
+| ... | ... | ... | ... |
+
+---
+
+## Branch Points (Human Decision Required)
+
+These questions have no clear "right" answer - they depend on your context,
+preferences, or business requirements.
+
+| # | Question | Why Human Needed |
+|---|----------|------------------|
+| 1 | What terminology: "template" vs "blueprint" vs "pattern"? | Brand/voice decision - no industry standard |
+| 5 | Linked instances or fire-and-forget snapshots? | Architecture tradeoff with UX implications |
+| 29 | Flat list vs folders vs tags for organization? | UX philosophy - multiple valid approaches |
+| ... | ... | ... |
+
+---
+
+## Question Dependencies
+
+Answering early questions may automatically resolve later ones:
+
+**Q5 (Linked vs Snapshot)** unlocks:
+- Q8 (Update propagation) - N/A if snapshot
+- Q64 (Version history) - less critical if snapshot
+- Q66 (Instance tracking) - N/A if snapshot
+
+**Q29 (Organization model)** unlocks:
+- Q30 (Folder nesting depth) - only if folders chosen
+- Q31 (Tag management) - only if tags chosen
+- Q32 (Search/filter needs) - varies by model
+
+---
+
+## Interview Plan
+
+**Round 1: Core Mental Model** (~[N] questions)
+These unlock the most dependencies - answer these first:
+1. Q1 - Terminology choice
+2. Q5 - Linked vs snapshot architecture
+3. Q29 - Organization model
+
+**Round 2: Cascaded Confirmations** (~[N] questions)
+Based on Round 1, confirm inferred answers:
+- "Since you chose X, that means Y. Correct?"
+
+**Round 3: Standalone Branch Points** (~[N] questions)
+Remaining questions with no dependencies:
+- Q34 - Where does "Save as Template" live in UI?
+- Q37 - Preview before applying?
+
+---
+
+**Estimated dialogue:** ~[Y] questions for you, ~[X] auto-noted
+```
+"""
+
+# ============================================================================
+# STEP 3: BRAINSTORMING DIALOGUE
+# ============================================================================
+
+[[template]]
+id = "{target}.brainstorm-session"
+title = "Brainstorming dialogue"
+needs = ["{target}.question-triage"]
+description = """
+Conduct the brainstorming dialogue, adapting based on whether questions exist.
+
+---
+
+## Mode A: With Questions
+
+Use this mode if questions file was found and triage completed.
+
+### Phase 1: Present Auto-Answers
+
+Show all auto-answered questions upfront for transparency:
+
+```
+## Pre-filled Answers (Best Practices)
+
+Based on industry standards and your codebase context, I've noted these answers:
+
+**Date Handling (Q7):** Relative to instantiation date
+→ This is what Asana, Notion, and Linear all do. Absolute dates would make
+  templates stale immediately.
+
+**Status Reset (Q13):** Always reset to "Not Started"
+→ Users universally expect fresh checklists from templates. Importing
+  completed items would be confusing.
+
+**Internal Dependencies (Q19):** Preserved
+→ Losing task dependencies would break the core value of workflow templates.
+  "Task B blocked by Task A" is essential structure.
+
+[...continue for all auto-answered questions...]
+
+---
+
+These are noted in the spec. Let me know if any need discussion,
+otherwise we'll move to the questions that need your input.
+```
+
+Wait for user acknowledgment or questions about auto-answers.
+
+### Phase 2: Walk Through Branch Points
+
+Follow the interview plan from question-triage.md:
+
+**Rules:**
+- **One question per message** - don't overwhelm
+- **Multiple choice preferred** - 2-4 options with clear labels
+- **Lead with recommendation** - explain your reasoning
+- **Note cascaded inferences** - after each answer, state what it implies
+
+Example dialogue:
+
+```
+## Question 1: Terminology
+
+What should we call these reusable task structures?
+
+**Options:**
+1. **Template** (Recommended) - Familiar term, used by Notion, Google Docs, most tools
+2. **Blueprint** - Suggests construction/planning, more technical feel
+3. **Pattern** - Abstract, might confuse with design patterns
+4. **Preset** - Common in creative tools, less common in task management
+
+I recommend "Template" because it's the most widely understood term and sets
+correct user expectations.
+```
+
+After user answers:
+
+```
+Great, "Template" it is.
+
+Since we're using familiar terminology, that suggests we should also follow
+familiar conventions for related terms - "Apply template" rather than
+"Instantiate blueprint", for example. Noted.
+
+Next question...
+```
+
+### Phase 3: Transition to Design
+
+Once all branch points answered:
+
+```
+## Questions Complete
+
+I have answers to all [Y] branch points, plus [X] auto-noted best practices.
+
+Let me synthesize this into a design. I'll present it in sections -
+please let me know after each if it looks right so far.
+```
+
+---
+
+## Mode B: Without Questions (Standard Brainstorming)
+
+Use this mode if no questions file was found.
+
+### Phase 1: Understand Project Context
+
+- Read codebase context if `plans/{{feature}}/scope-questions/context.md` exists
+- Otherwise, explore: check current project state (files, docs, recent commits)
+- Understand what exists that this feature will integrate with
+
+### Phase 2: Ask Clarifying Questions
+
+Explore the idea through dialogue:
+- **One question at a time**
+- **Multiple choice preferred** when feasible
+- Focus on: purpose, constraints, success criteria, user needs
+
+Example:
+
+```
+Let me understand what you're envisioning.
+
+When you say "task templates", which of these is closest to your mental model?
+
+1. **Snapshot copies** - Save a task structure, stamp out independent copies
+2. **Linked blueprints** - Instances stay connected, updates propagate
+3. **Smart presets** - Templates with variables/placeholders filled at creation
+4. **Not sure yet** - Let's explore the tradeoffs
+```
+
+### Phase 3: Explore Approaches
+
+Once you understand the core need, propose 2-3 approaches:
+
+```
+## Approaches
+
+Based on what you've described, here are three ways we could build this:
+
+**Approach A: Simple Snapshots (Recommended)**
+- Templates are frozen copies of task hierarchies
+- "Apply template" creates independent tasks
+- Simple mental model, easy to implement
+- Tradeoff: No connection between template and instances
+
+**Approach B: Linked Instances**
+- Tasks remember their source template
+- Optional: push template updates to instances
+- More powerful but more complex
+- Tradeoff: Users must understand the linkage model
+
+**Approach C: Smart Templates**
+- Include variables like {{client_name}}, {{due_date}}
+- Prompt for values when applying
+- Most flexible but most complex
+- Tradeoff: Significant UX complexity
+
+I recommend Approach A for v1 because [reasoning].
+
+Which direction resonates with you?
+```
+
+---
+
+## Common: Present Design Incrementally
+
+Once requirements are understood (either mode), present the design in sections.
+
+**Rules:**
+- **200-300 words per section** - digestible chunks
+- **Validate each section** - "Does this look right so far?"
+- **Be flexible** - go back and clarify if something doesn't fit
+
+### Section Order:
+
+1. **Architecture Overview**
+   - High-level structure
+   - Key entities and relationships
+   - How it fits with existing system
+
+2. **Key Components**
+   - What pieces need to be built
+   - Responsibilities of each
+   - Interfaces between them
+
+3. **Data Model**
+   - Schema changes needed
+   - Storage considerations
+   - Migration if applicable
+
+4. **User Flows**
+   - Primary happy paths
+   - Step-by-step interactions
+   - Where features are accessed
+
+5. **Error Handling**
+   - What can go wrong
+   - How users recover
+   - Edge cases to handle
+
+6. **Integration Points**
+   - How this connects to existing codebase
+   - Dependencies on existing features
+   - Shared components to leverage
+
+After each section:
+```
+Does this section look right so far? Any concerns or changes?
+```
+
+---
+
+## Key Principles (Apply in Both Modes)
+
+- **One question at a time** - Don't overwhelm with multiple questions
+- **Multiple choice preferred** - Easier to answer than open-ended
+- **YAGNI ruthlessly** - Remove unnecessary features from all designs
+- **Explore alternatives** - Always propose 2-3 approaches before settling
+- **Incremental validation** - Present design in sections, validate each
+- **Be flexible** - Go back and clarify when something doesn't make sense
+"""
+
+# ============================================================================
+# STEP 4: WRITE SPEC DOCUMENT
+# ============================================================================
+
+[[template]]
+id = "{target}.write-spec"
+title = "Write spec document"
+needs = ["{target}.brainstorm-session"]
+description = """
+Write the validated design as a complete spec document.
+
+## Output Location
+Write to: `plans/{{feature}}/spec.md`
+
+## Document Structure
+
+```markdown
+# {{feature}} - Design Specification
+
+**Created:** [YYYY-MM-DD]
+**Status:** Validated
+**Brainstorming Mode:** [With scope questions | Standard]
+
+---
+
+## Overview
+
+[2-3 paragraph summary of what we're building and why]
+
+- What problem does this solve?
+- Who is it for?
+- What's the core value proposition?
+
+---
+
+## Scope Questions & Answers
+
+[INCLUDE THIS SECTION ONLY IF questions file was used]
+
+### Summary
+- **Questions addressed:** [N] ([scope selected: P0 | P0+P1 | etc.])
+- **Auto-answered (best practices):** [X]
+- **Human decisions:** [Y]
+- **Deferred to future:** [Z]
+
+### P0: Critical Decisions
+
+| # | Question | Answer | How Decided |
+|---|----------|--------|-------------|
+| 1 | What terminology? | "Template" | Human choice - familiar, matches industry |
+| 5 | Linked or snapshot? | Snapshot | Human choice - simpler mental model for v1 |
+| 7 | Date handling? | Relative to instantiation | Best practice (Asana, Notion, Linear) |
+| 13 | Status reset? | Yes, to "Not Started" | Best practice (universal expectation) |
+| ... | ... | ... | ... |
+
+### P1: Important Decisions
+
+| # | Question | Answer | How Decided |
+|---|----------|--------|-------------|
+| ... | ... | ... | ... |
+
+### Deferred Questions
+
+These questions were in scope but explicitly deferred:
+
+| # | Question | Defer Reason | Revisit When |
+|---|----------|--------------|--------------|
+| 91 | Variable/placeholder support? | Adds significant complexity | Post-MVP, if users request |
+| 108 | Template versioning? | Enterprise feature | When targeting enterprise |
+| ... | ... | ... | ... |
+
+---
+
+## Design
+
+### Architecture Overview
+
+[High-level structure validated during brainstorming]
+
+- System components and their relationships
+- How this fits into the existing application
+- Key architectural decisions and rationale
+
+### Components
+
+[Detailed component breakdown]
+
+**Component 1: [Name]**
+- Responsibility: [what it does]
+- Interface: [how other components interact with it]
+- Key considerations: [important details]
+
+**Component 2: [Name]**
+- ...
+
+### Data Model
+
+[Schema and storage design]
+
+- New tables/collections needed
+- Relationships to existing data
+- Key fields and their purposes
+- Migration considerations if applicable
+
+### User Flows
+
+[Step-by-step user interactions]
+
+**Flow 1: Creating a Template**
+1. User selects task(s) to save as template
+2. ...
+
+**Flow 2: Applying a Template**
+1. User opens template library
+2. ...
+
+### Error Handling
+
+[What can go wrong and how we handle it]
+
+- Validation errors (with user-friendly messages)
+- Edge cases (empty states, limits, conflicts)
+- Recovery paths (how users fix problems)
+
+### Integration Points
+
+[How this connects to existing codebase]
+
+- Existing components to leverage
+- APIs to extend or modify
+- Shared patterns to follow
+
+---
+
+## Out of Scope
+
+[Explicitly excluded items - YAGNI applied]
+
+The following were considered but explicitly excluded from this version:
+
+- **Variable/placeholder syntax** - Adds complexity, revisit post-MVP
+- **Template marketplace/sharing** - Future consideration
+- **Template analytics** - Nice to have, not essential
+- ...
+
+---
+
+## Open Questions
+
+[Questions that emerged during brainstorming needing future resolution]
+
+- [ ] Should template names be unique per user or globally unique?
+- [ ] How do we handle template migration if schema changes?
+- ...
+
+---
+
+## Next Steps
+
+Recommended path forward:
+
+- [ ] Review this spec with stakeholders
+- [ ] Run spec review (Step 5 of pipeline) to verify completeness
+- [ ] Create implementation plan
+- [ ] Break into beads epics/issues
+
+---
+
+## Appendix: Source Files
+
+- `plans/{{feature}}/scope-questions/questions.md` - Original scope questions
+- `plans/{{feature}}/scope-questions/context.md` - Codebase context
+- `plans/{{feature}}/question-triage.md` - Question analysis
+```
+
+---
+
+## Quality Check
+
+Before completing this step, verify:
+
+- [ ] All in-scope questions have answers or explicit deferral
+- [ ] Auto-answers include rationale (which tools, why standard)
+- [ ] Human decisions include reasoning
+- [ ] Design was validated section by section during brainstorming
+- [ ] YAGNI applied - unnecessary features moved to "Out of Scope"
+- [ ] Integration with existing codebase addressed
+- [ ] Out of scope clearly defined with rationale
+- [ ] Open questions captured for future resolution
+- [ ] Next steps are actionable
+"""
+
+# ============================================================================
+# STEP 5: COMMIT WORK
+# ============================================================================
+
+[[template]]
+id = "{target}.commit"
+title = "Commit spec and related files"
+needs = ["{target}.write-spec"]
+description = """
+Commit the spec and related files to git.
+
+## Files to Commit
+
+Add all files in the feature's plans directory:
+- `plans/{{feature}}/spec.md` - The spec document
+- `plans/{{feature}}/question-triage.md` - Question analysis (if created)
+
+## Commit Process
+
+1. Stage the files:
+   ```bash
+   git add plans/{{feature}}/
+   ```
+
+2. Create commit with descriptive message:
+   ```bash
+   git commit -m "feat(plans): add {{feature}} design spec
+
+   Brainstormed and validated spec for {{feature}} feature.
+
+   [If with-questions mode:]
+   - Questions addressed: [N] ([scope])
+   - Auto-answered: [X]
+   - Human decisions: [Y]
+
+   [If standard mode:]
+   - Standard brainstorming (no prior scope questions)
+
+   Co-Authored-By: Claude <agent>"
+   ```
+
+3. Run beads sync (if beads detected):
+   ```bash
+   bd sync
+   ```
+
+4. Push to remote:
+   ```bash
+   git push
+   ```
+
+## Output
+
+Report completion:
+```
+## Spec Committed
+
+**Files committed:**
+- plans/{{feature}}/spec.md
+- plans/{{feature}}/question-triage.md (if applicable)
+
+**Commit:** [short hash]
+**Pushed to:** origin/[branch]
+
+Ready for next pipeline step (spec review).
+```
+"""

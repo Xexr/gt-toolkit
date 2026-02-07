@@ -1,0 +1,39 @@
+# Spec Questions Interview Formula
+#
+# Review a spec for gaps and ambiguities through focused clarifying questions.
+# Two-pass approach: completeness check + fresh assessment.
+#
+# Usage:
+#   gt sling spec-questions-interview dypt/crew/neo \
+#     --var feature="task-templates"
+
+description = """
+Review a spec for gaps and ambiguities through focused clarifying questions.
+
+Two-pass approach:
+1. Completeness check - verify prior scope questions were addressed (based on user's selected scope)
+2. Fresh assessment - identify NEW gaps with fresh eyes (not limited to original questions)
+
+This is part of the design-to-implementation pipeline.
+"""
+formula = "spec-questions-interview"
+type = "workflow"
+version = 3
+
+[vars]
+[vars.feature]
+description = "Feature name (used for input/output paths)"
+required = true
+
+# Placeholder step that will be expanded
+[[steps]]
+id = "interview"
+title = "Run questions interview process"
+description = "This step is expanded into the full interview workflow."
+
+# Composition: expand the placeholder with the expansion formula
+[compose]
+
+[[compose.expand]]
+target = "interview"
+with = "spec-questions-interview-expansion"

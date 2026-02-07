@@ -1,0 +1,216 @@
+# Spec Workflow Formula
+#
+# Complete design-to-reviewed-spec pipeline in 4 steps:
+#   Step 1: Multimodal scope questions (3x3 matrix analysis)
+#   Step 2: Brainstorm (dialogue to validated spec)
+#   Step 3: Questions interview (completeness check + fresh assessment)
+#   Step 4: Multimodal review (3-model parallel review)
+#
+# Single human gate after multimodal review, before marking complete.
+# Uses expansion composition to inline all workflow steps.
+#
+# Usage:
+#   gt sling spec-workflow dypt/crew/neo \
+#     --var feature="command-palette" \
+#     --var brief="Add a keyboard-centric command palette for power users..."
+
+description = """
+Complete spec workflow from idea to reviewed design document.
+
+Orchestrates 4 steps with a single human gate at the end:
+1. **Multimodal Scope Questions** - 3x3 matrix surfaces blind spots
+2. **Brainstorm** - Smart dialogue turns questions into validated spec
+3. **Questions Interview** - Completeness check + fresh eyes assessment
+4. **Multimodal Review** - 3-model parallel review catches gaps
+
+Steps 2 and 3 are interactive (user dialogue), so intermediate gates
+are unnecessary. The single final gate lets you review the complete
+picture before marking done.
+
+Use `bd gate resolve <gate-id>` to approve and complete.
+
+Output: Fully reviewed spec at plans/{{feature}}/spec.md
+"""
+formula = "spec-workflow"
+type = "workflow"
+version = 4
+
+[vars]
+[vars.feature]
+description = "Feature name (used for all input/output paths)"
+required = true
+
+[vars.brief]
+description = "Feature brief or description (1-3 sentences describing what to build)"
+required = true
+
+# ============================================================================
+# STEP 1: MULTIMODAL SCOPE QUESTIONS (expanded from spec-scope-questions-expansion)
+# ============================================================================
+
+[[steps]]
+id = "step-1-scope-questions"
+title = "Step 1: Multimodal Scope Questions"
+description = """
+Surface design blind spots using a 3x3 matrix of models and perspectives.
+
+This step is expanded into the full 3x3 matrix analysis:
+1. Gather codebase context via Haiku
+2. Dispatch 9 parallel analyses (3 models × 3 perspectives)
+3. Consolidate per-model (3 parallel Haiku tasks)
+4. Synthesize into prioritized question backlog (P0/P1/P2/P3)
+
+**Outputs:**
+- plans/{{feature}}/scope-questions/context.md
+- plans/{{feature}}/scope-questions/questions.md (synthesized)
+- Per-model question files
+"""
+
+# ============================================================================
+# STEP 2: BRAINSTORM (expanded from spec-brainstorm-expansion)
+# ============================================================================
+
+[[steps]]
+id = "step-2-brainstorm"
+title = "Step 2: Brainstorm"
+needs = ["step-1-scope-questions"]
+description = """
+Turn scope questions into a validated design spec through smart dialogue.
+
+This step is expanded into the full brainstorming workflow:
+1. Load questions, present summary, ask user for scope
+2. Triage: auto-answerable vs branch points
+3. Dialogue: present auto-answers, walk through branch points
+4. Write spec incrementally, validating each section
+
+**Interactive:** This step involves dialogue with user for branch point decisions.
+
+**Outputs:**
+- plans/{{feature}}/question-triage.md
+- plans/{{feature}}/spec.md
+"""
+
+# ============================================================================
+# STEP 3: QUESTIONS INTERVIEW (expanded from spec-questions-interview-expansion)
+# ============================================================================
+
+[[steps]]
+id = "step-3-questions-interview"
+title = "Step 3: Questions Interview"
+needs = ["step-2-brainstorm"]
+description = """
+Review spec for gaps through completeness check + fresh assessment.
+
+This step is expanded into the full interview workflow:
+1. Load spec, triage, and context files
+2. Completeness check against selected scope questions
+3. Fresh assessment across 6 categories
+4. Ask clarifying questions for any gaps (AskUserQuestion)
+5. Update spec with clarifications
+
+**Interactive:** May ask clarifying questions if gaps found.
+
+**Outputs:**
+- Updated plans/{{feature}}/spec.md with "Spec Review" section
+"""
+
+# ============================================================================
+# STEP 4: MULTIMODAL REVIEW (expanded from spec-multimodal-review-expansion)
+# ============================================================================
+
+[[steps]]
+id = "step-4-multimodal-review"
+title = "Step 4: Multimodal Review"
+needs = ["step-3-questions-interview"]
+description = """
+3-model parallel review catches remaining gaps and inconsistencies.
+
+This step is expanded into the full multimodal review workflow:
+1. Reuse context.md from Step 1
+2. Dispatch 3 models in parallel (all 12 review categories)
+3. Synthesize: comparison table, issues by severity, ambiguities
+4. Present findings, gate on "go"
+5. Action: select issues, resolve ambiguities, update spec
+
+**Outputs:**
+- plans/{{feature}}/spec-review.md
+- Updated plans/{{feature}}/spec.md with "Multi-Model Review" section
+"""
+
+# ============================================================================
+# GATE: Final review before marking complete
+# ============================================================================
+
+[[steps]]
+id = "gate-final"
+title = "Gate: Final Review"
+needs = ["step-4-multimodal-review"]
+gate = { type = "human" }
+description = """
+Human gate: Final review before marking spec workflow complete.
+
+**Review:**
+- plans/{{feature}}/spec.md (final version)
+- plans/{{feature}}/spec-review.md (review findings)
+
+**Check:**
+- All critical/high issues addressed?
+- Spec is clear and implementable?
+- Ready for implementation planning?
+
+**To approve and complete:**
+```bash
+bd gate resolve <this-gate-id>
+```
+"""
+
+# ============================================================================
+# COMPLETE: Summary
+# ============================================================================
+
+[[steps]]
+id = "complete"
+title = "Workflow Complete"
+needs = ["gate-final"]
+description = """
+Spec workflow is complete.
+
+**Summary:**
+- Step 1: Scope questions generated (3-model consensus)
+- Step 2: Spec written (branch points decided)
+- Step 3: Interview completed (gaps addressed)
+- Step 4: Multimodal review completed (issues resolved)
+
+**Final outputs:**
+- plans/{{feature}}/spec.md (reviewed spec)
+- plans/{{feature}}/spec-review.md (review findings)
+- plans/{{feature}}/scope-questions/ (analysis artifacts)
+- plans/{{feature}}/question-triage.md (triage record)
+
+**Next steps:**
+- Implementation planning (break into epics/tasks)
+- Conversion to beads issues (design-to-beads skill)
+- Convoy execution
+"""
+
+# ============================================================================
+# COMPOSITION: Expand placeholder steps with expansion formulas
+# ============================================================================
+
+[compose]
+
+[[compose.expand]]
+target = "step-1-scope-questions"
+with = "spec-multimodal-scope-questions-expansion"
+
+[[compose.expand]]
+target = "step-2-brainstorm"
+with = "spec-brainstorm-expansion"
+
+[[compose.expand]]
+target = "step-3-questions-interview"
+with = "spec-questions-interview-expansion"
+
+[[compose.expand]]
+target = "step-4-multimodal-review"
+with = "spec-multimodal-review-expansion"

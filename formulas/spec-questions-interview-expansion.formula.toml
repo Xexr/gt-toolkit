@@ -1,0 +1,482 @@
+# Spec Questions Interview - EXPANSION VERSION
+#
+# This is the expansion-type version that can be composed into other workflows.
+# Use spec-questions-interview for standalone execution.
+#
+# Review a spec for gaps and ambiguities through focused clarifying questions.
+# Two-pass approach: completeness check + fresh assessment.
+
+description = """
+EXPANSION: Review a spec for gaps and ambiguities through focused clarifying questions.
+
+This is an expansion-type formula for composition into other workflows.
+It transforms a single step into the full questions interview process.
+
+Two-pass approach:
+1. Completeness check - verify prior scope questions were addressed (based on user's selected scope)
+2. Fresh assessment - identify NEW gaps with fresh eyes (not limited to original questions)
+
+Use spec-questions-interview for standalone execution.
+"""
+formula = "spec-questions-interview-expansion"
+type = "expansion"
+version = 1
+
+# Note: vars are inherited from the parent workflow that expands this
+
+# ============================================================================
+# STEP 1: LOAD AND ASSESS
+# ============================================================================
+
+[[template]]
+id = "{target}.load-and-assess"
+title = "Load spec and assess completeness"
+description = """
+Load the spec and questions files, then perform dual assessment.
+
+## Inputs
+
+**Required:**
+- `plans/{{feature}}/spec.md` - The spec from brainstorming step
+
+**Optional (if exists):**
+- `plans/{{feature}}/question-triage.md` - Shows which scope user selected
+- `plans/{{feature}}/scope-questions/questions.md` - Original scope questions
+- `plans/{{feature}}/scope-questions/context.md` - Codebase context from step 0
+
+## Process
+
+### 1. Load Files
+
+Read spec.md (required) and optional files (if they exist):
+- question-triage.md and questions.md for completeness check
+- context.md for codebase awareness during fresh assessment
+
+If question-triage.md doesn't exist, skip completeness check and do fresh assessment only.
+
+If context.md exists, use it to inform your fresh assessment - understanding the existing
+codebase helps identify gaps specific to the architecture (e.g., "spec mentions adding a
+new table but doesn't address how it relates to existing taskPermissions table").
+
+### 2. Determine Question Scope
+
+**Read from question-triage.md** to find what scope the user selected in step 1:
+
+Look for: `**Scope selected:** [P0 only | P0+P1 | P0+P1+P2 | All]`
+
+This determines which questions to check for completeness:
+- "Critical only (P0)" → Check only P0 questions
+- "High priority (P0 + P1)" → Check P0 and P1 questions
+- "Comprehensive (P0 + P1 + P2)" → Check P0, P1, and P2 questions
+- "Everything" → Check all questions including P3
+
+### 3. Completeness Check (if questions file exists)
+
+Cross-reference the spec's Q&A section against the questions IN SCOPE:
+
+**For each in-scope question:**
+- Is it addressed in the spec? (has an answer)
+- Is the answer concrete or vague? ("TBD" or "To be determined" = not answered)
+- If P2/P3: Is it addressed OR explicitly deferred with rationale?
+
+**Flag any in-scope questions without clear answers or explicit deferral.**
+
+**Output a completeness report:**
+```
+## Completeness Check
+
+**Scope from brainstorming:** [scope selected]
+**Questions in scope:** [N]
+
+**Addressed:** [X] of [N]
+- ✓ Q1: Template terminology - Answered: "Template"
+- ✓ Q5: Linked vs snapshot - Answered: "Snapshot"
+- ✗ Q12: Date anchor point - NOT ADDRESSED
+- ...
+
+**Explicitly Deferred:** [Y]
+- Q91: Variable support - Deferred to post-MVP ✓
+
+**Missing Answers:** [Z]
+- Q12: Date anchor point
+- Q30: Search scope
+```
+
+### 4. Fresh Assessment (ALWAYS do this)
+
+**CRITICAL: This is a FRESH review with fresh eyes.**
+**Do NOT limit yourself to the original scope questions.**
+**Think independently about what's unclear or ambiguous.**
+
+Read the spec and assess against these categories:
+
+**Objective:**
+- Is it clear what should change vs stay the same?
+- Could two engineers read this and build the same thing?
+
+**Done Criteria:**
+- Are acceptance criteria explicit?
+- Are there concrete examples or test cases?
+- Are edge cases addressed?
+
+**Scope:**
+- Which files/components are in scope? Out of scope?
+- Are boundaries crisp or fuzzy?
+
+**Constraints:**
+- Performance requirements stated?
+- Compatibility requirements?
+- Style/pattern requirements?
+
+**Dependencies:**
+- External dependencies identified?
+- Integration points clear?
+
+**Safety:**
+- Data migration needs?
+- Rollback plan if things go wrong?
+- Risk factors acknowledged?
+
+**For each category, note:**
+- ✓ Clear (no gaps)
+- ⚠ Minor gap (could infer, but should confirm)
+- ✗ Major gap (ambiguous, multiple interpretations possible)
+
+**Output a gap assessment:**
+```
+## Fresh Assessment
+
+| Category | Status | Notes |
+|----------|--------|-------|
+| Objective | ✓ Clear | Well-defined in Overview section |
+| Done Criteria | ⚠ Minor gap | Success metrics defined but no test cases |
+| Scope | ✓ Clear | Out of Scope section is explicit |
+| Constraints | ✗ Major gap | No performance requirements stated |
+| Dependencies | ⚠ Minor gap | cmdk listed but version not specified |
+| Safety | ✗ Major gap | No rollback plan mentioned |
+```
+
+### 5. Prioritize Gaps
+
+Combine both assessments into a prioritized list:
+
+**Critical (must resolve):**
+- Unaddressed in-scope questions (especially P0/P1)
+- Major gaps from fresh assessment
+
+**Important (should resolve):**
+- Minor gaps from fresh assessment
+
+**Nice to have:**
+- Polish items, clarifications that could help but aren't blocking
+
+## Output
+
+Write assessment to: `plans/{{feature}}/spec-review-assessment.md`
+
+If NO gaps found:
+- Note "Spec looks complete!"
+- Skip to finalize step
+"""
+
+# ============================================================================
+# STEP 2: CLARIFYING QUESTIONS
+# ============================================================================
+
+[[template]]
+id = "{target}.clarifying-questions"
+title = "Ask clarifying questions"
+needs = ["{target}.load-and-assess"]
+description = """
+Ask clarifying questions to resolve identified gaps.
+
+**Skip this step if no gaps were identified.**
+
+## Process
+
+### Question Strategy
+
+**Order:** Critical gaps first, then important, then nice-to-have.
+
+**Format:** Use AskUserQuestion tool for ALL questions - never plain text.
+
+**Batching:**
+- Ask 1-3 independent questions per round
+- Wait for answers before asking dependent follow-ups
+- Reassess after each round - stop when gaps are resolved
+
+### Question Format Guidelines
+
+Each question should:
+- Be short and direct
+- Offer 2-4 concrete options when possible
+- Put recommended option first with "(Recommended)" suffix
+- Include "Not sure - suggest a default" option when helpful
+
+### For Unaddressed Scope Questions
+
+Frame as acknowledging the prior analysis:
+
+"The original scope analysis flagged this question, but I don't see a clear
+answer in the spec..."
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "Q12 asked about date anchor point but wasn't addressed. When relative dates like '@tomorrow' are used, what's the anchor?",
+    "header": "Dates",
+    "options": [
+      {"label": "Instantiation date (Recommended)", "description": "Dates relative to when template is applied"},
+      {"label": "Template creation date", "description": "Dates relative to when template was saved"},
+      {"label": "User-specified start date", "description": "Prompt user for anchor when applying"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+### For Fresh Assessment Gaps
+
+Frame as a new observation:
+
+"While reviewing the spec with fresh eyes, I noticed..."
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "The spec doesn't mention a rollback plan. How should we handle reverting if something goes wrong?",
+    "header": "Safety",
+    "options": [
+      {"label": "Feature flag (Recommended)", "description": "Disable feature instantly without deploy"},
+      {"label": "Database migration rollback", "description": "Script to undo schema changes"},
+      {"label": "No formal plan needed", "description": "Feature is low-risk, manual cleanup OK"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+### Iteration
+
+After each round of answers:
+1. Note the answers
+2. Check if any answers unlock or resolve other gaps
+3. If gaps remain, ask next highest-priority question(s)
+4. If all gaps resolved, proceed to finalize
+
+**Continue until:**
+- All critical gaps are resolved
+- User indicates they want to stop ("That's enough detail")
+- No more questions to ask
+
+### Loop Until Clean
+
+After resolving all identified gaps from this pass:
+
+1. **Re-assess**: Perform a fresh mini-assessment of the updated spec
+   - Re-read the spec with changes applied
+   - Check the same 6 categories (Objective, Done, Scope, Constraints, Dependencies, Safety)
+   - Focus on whether changes introduced new gaps or inconsistencies
+
+2. **If new gaps found**: Ask clarifying questions for those gaps (same format as above)
+
+3. **If no gaps found**: Proceed to finalize
+
+4. **Maximum 3 passes** to prevent infinite loops. After 3 passes, proceed
+   to finalize regardless, noting any remaining gaps.
+
+5. **User escape hatch**: If at any point the user says "continue", "enough",
+   "move on", or similar - proceed to finalize immediately regardless of
+   remaining gaps.
+
+Present pass count to user: "Pass 2 of 3: Found N new gaps..."
+
+### Anti-patterns to Avoid
+
+- Presenting questions as plain text instead of using AskUserQuestion tool
+- Asking questions you could answer with a quick file read
+- Asking open-ended questions when multiple-choice would work
+- Asking dependent questions before getting prerequisite answers
+- Asking about things already clearly stated in the spec
+- **Limiting yourself ONLY to the original scope questions - think fresh!**
+"""
+
+# ============================================================================
+# STEP 3: FINALIZE
+# ============================================================================
+
+[[template]]
+id = "{target}.finalize"
+title = "Summarize and update spec"
+needs = ["{target}.clarifying-questions"]
+description = """
+Summarize refinements and update the spec document.
+
+## Process
+
+### 1. Present Summary
+
+Show a concise summary of what was clarified:
+
+```
+## Spec Review Complete
+
+**Completeness check:**
+- [X] of [N] in-scope questions now addressed
+- [Y] questions explicitly deferred with rationale
+
+**Fresh assessment gaps resolved:**
+- Added performance requirements (<50ms local)
+- Added rollback plan section
+- Clarified cmdk version requirement (^1.0.0)
+
+**Key refinements:**
+- Date handling: Anchor is instantiation date, not creation
+- Error recovery: Show inline error with retry, not toast
+- Mobile: Explicitly deferred to v2
+```
+
+### 2. Confirm Update
+
+Ask user to confirm before modifying the spec:
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "Should I update the spec with these refinements?",
+    "header": "Update",
+    "options": [
+      {"label": "Yes, update spec.md (Recommended)", "description": "Incorporate all clarifications into the spec"},
+      {"label": "No, just note them", "description": "Keep spec as-is, I'll update manually"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+### 3. Update Spec (if confirmed)
+
+Modify `plans/{{feature}}/spec.md`:
+
+**In "Scope Questions & Answers" section:**
+- Add any newly answered questions
+- Update any refined answers
+- Mark any newly deferred items with rationale
+
+**Add or update "Spec Review" section:**
+```markdown
+## Spec Review
+
+**Reviewed:** [date]
+**Gaps identified:** [N]
+**Gaps resolved:** [N]
+
+### Clarifications Added
+
+| Topic | Clarification |
+|-------|---------------|
+| Performance | <50ms local search, <200ms remote |
+| Rollback | Feature flag for instant disable |
+| ... | ... |
+
+### Deferred Items
+
+| Item | Rationale | Revisit When |
+|------|-----------|--------------|
+| Mobile support | Scope control | v2 planning |
+| ... | ... | ... |
+```
+
+**Update relevant sections** with new constraints, requirements, or scope changes.
+
+### 4. Cleanup
+
+Delete temporary assessment file:
+- `plans/{{feature}}/spec-review-assessment.md`
+
+### 5. Final Output
+
+Report completion:
+
+```
+## Spec Review Complete
+
+**Updated:** plans/{{feature}}/spec.md
+
+**Status:** Ready for next pipeline step (multi-agent review)
+
+**Summary:**
+- In-scope questions addressed: [X] of [N]
+- Fresh gaps resolved: [Y]
+- Items deferred: [Z]
+```
+
+## Quality Check
+
+- [ ] All in-scope questions (per user's selected scope) have answers or explicit deferral
+- [ ] Fresh assessment performed independently (not limited to original questions)
+- [ ] All categories checked (Objective, Done, Scope, Constraints, Dependencies, Safety)
+- [ ] Questions asked via AskUserQuestion tool (not plain text)
+- [ ] Spec updated with refinements (if user confirmed)
+- [ ] No implementation started - spec refinement only
+"""
+
+# ============================================================================
+# STEP 4: COMMIT WORK
+# ============================================================================
+
+[[template]]
+id = "{target}.commit"
+title = "Commit spec updates"
+needs = ["{target}.finalize"]
+description = """
+Commit the updated spec to git.
+
+## Files to Commit
+
+- `plans/{{feature}}/spec.md` - The updated spec document
+
+## Commit Process
+
+1. Stage the files:
+   ```bash
+   git add plans/{{feature}}/spec.md
+   ```
+
+2. Create commit with descriptive message:
+   ```bash
+   git commit -m "feat({{feature}}): add acceptance criteria from spec review
+
+   Spec review completed:
+   - Completeness check: [X]/[N] questions verified
+   - Fresh assessment: [Y] gaps identified and resolved
+   - Added acceptance criteria and clarifications
+
+   Co-Authored-By: Claude <agent>"
+   ```
+
+3. Run beads sync (if beads detected):
+   ```bash
+   bd sync
+   ```
+
+4. Push to remote:
+   ```bash
+   git push
+   ```
+
+## Output
+
+Report completion:
+```
+## Spec Review Committed
+
+**Files committed:**
+- plans/{{feature}}/spec.md
+
+**Commit:** [short hash]
+**Pushed to:** origin/[branch]
+
+Ready for next pipeline step (multi-agent review).
+```
+"""

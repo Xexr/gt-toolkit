@@ -1,0 +1,52 @@
+# Multimodal Design Scope Questions (3x3 Matrix)
+#
+# Each model (Opus, GPT, Gemini) explores ALL THREE perspectives:
+# - User Advocate: What do users expect?
+# - Product Designer: What's the UX flow?
+# - Domain Expert: What's missing from the problem domain?
+#
+# Result: 9 analyses -> 3 model documents -> 1 synthesized question backlog
+#
+# Usage:
+#   gt sling spec-multimodal-scope-questions dypt/crew/neo \
+#     --var feature="task-recommendations" \
+#     --var brief="Add an AI feature that recommends what to work on next..."
+
+description = """
+Surface design blind spots using a 3x3 matrix of models and perspectives.
+
+Each model (Opus, GPT, Gemini) independently explores three perspectives:
+- User Advocate: What would users expect? What's confusing?
+- Product Designer: What's the UX flow? What interactions are implied?
+- Domain Expert: What domain concepts are missing? What do similar products do?
+
+This gives 9 individual analyses, consolidated into 3 model-specific documents,
+then synthesized into a final prioritized question backlog.
+
+This is a DESIGN pass focused on USER INTENT, not implementation.
+"""
+formula = "spec-multimodal-scope-questions"
+type = "workflow"
+version = 10
+
+[vars]
+[vars.feature]
+description = "Feature name (used for output directory: plans/{feature}/)"
+required = true
+
+[vars.brief]
+description = "The initial feature brief or description to analyze"
+required = true
+
+# Placeholder step that will be expanded
+[[steps]]
+id = "scope-questions"
+title = "Run 3x3 scope questions analysis"
+description = "This step is expanded into the full 3x3 matrix analysis."
+
+# Composition: expand the placeholder with the expansion formula
+[compose]
+
+[[compose.expand]]
+target = "scope-questions"
+with = "spec-multimodal-scope-questions-expansion"
