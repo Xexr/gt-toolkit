@@ -11,7 +11,7 @@ description = """
 Multi-LLM spec review using 3 models in parallel to catch gaps and inconsistencies.
 
 Autonomous version of review-documentation skill:
-- All 3 models always (Opus 4.5, GPT 5.2 Codex, Gemini 3 Pro)
+- All 3 models always (Opus 4.6, GPT 5.3 Codex, Gemini 3 Pro)
 - All review categories always (no configuration)
 - Skips CLI preflight checks (assumes they work)
 - Reuses existing context.md if available from step 0

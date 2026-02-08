@@ -20,7 +20,7 @@ Use spec-multimodal-scope-questions for standalone execution.
 """
 formula = "spec-multimodal-scope-questions-expansion"
 type = "expansion"
-version = 1
+version = 2
 
 # Note: vars are inherited from the parent workflow that expands this
 
@@ -124,7 +124,7 @@ Wait for Haiku to complete (typically 30-60 seconds), then proceed to the model 
 
 [[template]]
 id = "{target}.opus-generation"
-title = "Opus 4.5: Generate questions"
+title = "Opus 4.6: Generate questions"
 needs = ["{target}.context-gathering"]
 description = """
 Launch THREE parallel Opus sub-tasks. Each writes to a temp file.
@@ -292,7 +292,7 @@ Use TaskOutput with timeout: 600000 for each sub-task to wait for completion.
 
 [[template]]
 id = "{target}.opus-consolidation"
-title = "Opus 4.5: Consolidate"
+title = "Opus 4.6: Consolidate"
 needs = ["{target}.opus-generation"]
 description = """
 **DISPATCH IMMEDIATELY** when opus-generation completes. Do NOT wait for GPT or Gemini.
@@ -317,7 +317,7 @@ Write to: plans/{{feature}}/scope-questions/opus-questions.md
 
 Use this format:
 ```markdown
-# Opus 4.5 Analysis: {{feature}}
+# Opus 4.6 Analysis: {{feature}}
 
 ## User Advocate Perspective
 [Full content from opus-user-advocate.tmp - preserve all questions]
@@ -346,7 +346,7 @@ This runs as a background task - do NOT wait for it before starting other consol
 
 [[template]]
 id = "{target}.gpt-generation"
-title = "GPT 5.2: Generate questions"
+title = "GPT 5.3: Generate questions"
 needs = ["{target}.context-gathering"]
 description = """
 Run THREE Codex CLI calls in parallel. Each writes to a temp file.
@@ -369,13 +369,13 @@ Run all three in parallel using `run_in_background=true` on the Bash calls.
 
 ### Analysis 1: User Advocate (GPT)
 ```bash
-codex exec -m "gpt-5.2-codex" -c reasoning_effort="high" --sandbox read-only \
+codex exec -m "gpt-5.3-codex" -c reasoning_effort="high" \
   -o plans/{{feature}}/scope-questions/gpt-user-advocate.tmp \
   "$(cat <<'PROMPT'
 You are a User Advocate analyzing a feature brief.
 
 ## Codebase Context
-[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -411,13 +411,13 @@ PROMPT
 
 ### Analysis 2: Product Designer (GPT)
 ```bash
-codex exec -m "gpt-5.2-codex" -c reasoning_effort="high" --sandbox read-only \
+codex exec -m "gpt-5.3-codex" -c reasoning_effort="high" \
   -o plans/{{feature}}/scope-questions/gpt-product-designer.tmp \
   "$(cat <<'PROMPT'
 You are a Product Designer analyzing a feature brief.
 
 ## Codebase Context
-[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -458,13 +458,13 @@ PROMPT
 
 ### Analysis 3: Domain Expert (GPT)
 ```bash
-codex exec -m "gpt-5.2-codex" -c reasoning_effort="high" --sandbox read-only \
+codex exec -m "gpt-5.3-codex" -c reasoning_effort="high" \
   -o plans/{{feature}}/scope-questions/gpt-domain-expert.tmp \
   "$(cat <<'PROMPT'
 You are a Domain Expert analyzing a feature brief.
 
 ## Codebase Context
-[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -510,7 +510,7 @@ Use TaskOutput with timeout: 600000 for each background Bash call.
 
 [[template]]
 id = "{target}.gpt-consolidation"
-title = "GPT 5.2: Consolidate"
+title = "GPT 5.3: Consolidate"
 needs = ["{target}.gpt-generation"]
 description = """
 **DISPATCH IMMEDIATELY** when gpt-generation completes. Do NOT wait for Opus or Gemini.
@@ -535,7 +535,7 @@ Write to: plans/{{feature}}/scope-questions/gpt-questions.md
 
 Use this format:
 ```markdown
-# GPT 5.2 Analysis: {{feature}}
+# GPT 5.3 Analysis: {{feature}}
 
 ## User Advocate Perspective
 [Full content from gpt-user-advocate.tmp - preserve all questions]
@@ -583,7 +583,7 @@ command -v gemini >/dev/null 2>&1 && echo "Gemini CLI available" || echo "ERROR:
 ## Execution
 Run all three in parallel using `run_in_background=true` on the Bash calls.
 
-**Key flags:** `-o text` outputs clean text format, `2>/dev/null` suppresses stderr startup messages.
+**Key flags:** `-o text` outputs clean text format, stderr appended to `gemini-stderr.log` for diagnostics.
 
 ### Analysis 1: User Advocate (Gemini)
 ```bash
@@ -591,7 +591,7 @@ gemini "$(cat <<'PROMPT'
 You are a User Advocate analyzing a feature brief.
 
 ## Codebase Context
-[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -622,7 +622,7 @@ Generate at least 10 questions per category - more if warranted. Do not artifici
 For each: state clearly + explain why it matters.
 Do NOT ask technical questions.
 PROMPT
-)" --model gemini-3-pro-preview --sandbox -y -o text 2>/dev/null > plans/{{feature}}/scope-questions/gemini-user-advocate.tmp
+)" --model gemini-3-pro-preview -y -o text 2>>plans/{{feature}}/scope-questions/gemini-stderr.log > plans/{{feature}}/scope-questions/gemini-user-advocate.tmp
 ```
 
 ### Analysis 2: Product Designer (Gemini)
@@ -631,7 +631,7 @@ gemini "$(cat <<'PROMPT'
 You are a Product Designer analyzing a feature brief.
 
 ## Codebase Context
-[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -667,7 +667,7 @@ Generate at least 10 questions per category - more if warranted. Do not artifici
 For each: state clearly + explain why it matters.
 Do NOT ask technical questions.
 PROMPT
-)" --model gemini-3-pro-preview --sandbox -y -o text 2>/dev/null > plans/{{feature}}/scope-questions/gemini-product-designer.tmp
+)" --model gemini-3-pro-preview -y -o text 2>>plans/{{feature}}/scope-questions/gemini-stderr.log > plans/{{feature}}/scope-questions/gemini-product-designer.tmp
 ```
 
 ### Analysis 3: Domain Expert (Gemini)
@@ -676,7 +676,7 @@ gemini "$(cat <<'PROMPT'
 You are a Domain Expert analyzing a feature brief.
 
 ## Codebase Context
-[INJECT CONTENTS OF plans/{{feature}}/scope-questions/context.md HERE]
+Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -713,7 +713,7 @@ Generate at least 10 questions per category - more if warranted. Do not artifici
 For each: state clearly + explain why it matters.
 Do NOT ask technical questions.
 PROMPT
-)" --model gemini-3-pro-preview --sandbox -y -o text 2>/dev/null > plans/{{feature}}/scope-questions/gemini-domain-expert.tmp
+)" --model gemini-3-pro-preview -y -o text 2>>plans/{{feature}}/scope-questions/gemini-stderr.log > plans/{{feature}}/scope-questions/gemini-domain-expert.tmp
 ```
 
 ## Wait for Completion

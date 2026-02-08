@@ -82,7 +82,7 @@ Final quality gate using 3 models in parallel across 12 review categories.
 
 **Steps:**
 1. Gather or reuse codebase context
-2. Dispatch 3 models in parallel (Opus, GPT 5.2 Codex, Gemini 3 Pro) with all review categories (codebase match, security, design quality, performance, etc.)
+2. Dispatch 3 models in parallel (Opus 4.6, GPT 5.3 Codex, Gemini 3 Pro) with all review categories (codebase match, security, design quality, performance, etc.)
 3. Synthesize: deduplicate, build comparison table, group issues by severity
 4. Present findings, gate on user "go" / "skip"
 5. Resolve ambiguities, update spec with review section
