@@ -43,6 +43,14 @@ title = "Validate inputs"
 description = """
 Validate that all required artifacts exist before dispatching reviewers.
 
+## Bead Lifecycle Commands
+
+When updating bead state during this formula, use these bd commands:
+- Close a bead: `bd close <bead-id>`
+- Show a bead: `bd show <bead-id>`
+
+Do NOT use `bd start`, `bd progress`, or `bd set-state` — these do not exist.
+
 ## Required Files
 
 1. **Spec:** `plans/{{feature}}/02-spec/spec.md`
@@ -629,19 +637,13 @@ Full report: plans/{{feature}}/03-plan/plan-review.md
 
 ## If No P0 or P1 Findings
 
-Congratulations path:
-
-> "Plan review clean — no significant issues found. [N] P2 items noted in the report.
-> Say **'go'** to commit the review and proceed, or **'details'** to see P2 items."
-
-If user says "go" → proceed to commit.
-If user says "details" → show P2 items, then ask "go" or "fix".
+Skip to the P2 presentation below.
 
 ## If P0 or P1 Findings Exist
 
 ### Resolve P0 Findings First
 
-For each P0 finding, present it with the recommended action:
+For each P0 finding, present it individually with the recommended action:
 
 ```
 AskUserQuestion(
@@ -661,28 +663,68 @@ AskUserQuestion(
 
 ### Then P1 Findings
 
-Present P1 findings as a batch:
+Present each P1 finding individually with its recommended action. Different
+findings typically need different resolutions, so per-finding questions are
+better than a batch "all or nothing" approach.
+
+For each P1 finding:
 
 ```
 AskUserQuestion(
   questions=[{
-    "question": "Which P1 findings should we address?",
-    "header": "P1 Fixes",
+    "question": "[Finding description]. How should this be resolved?",
+    "header": "P1 Fix",
     "options": [
-      {"label": "All P1 findings (Recommended)", "description": "Address all [N] P1 items"},
-      {"label": "None — accept as-is", "description": "Document but don't change"},
-      {"label": "Select individually", "description": "Choose which P1s to fix"}
+      {"label": "[Recommended action] (Recommended)", "description": "[What this means]"},
+      {"label": "Update plan", "description": "Modify the plan to address this"},
+      {"label": "Update spec", "description": "The spec was ambiguous — clarify it"},
+      {"label": "Accept as-is", "description": "Acknowledge the gap but don't change anything"}
     ],
     "multiSelect": false
   }]
 )
 ```
 
-If "Select individually" → show multiselect of P1 items.
+You may batch up to 4 P1 findings into a single AskUserQuestion call
+(one question per finding) to reduce round-trips, as long as each finding
+has its own question with finding-specific options.
 
-### P2 Findings
+### Then P2 Findings
 
-Do NOT prompt for P2 findings. Document them in the review but don't require action.
+After P0 and P1 resolution (or immediately if there were none), present
+P2 findings. Show a one-line summary of each P2, then offer a choice:
+
+```
+### P2 Findings ([N] items)
+
+1. [One-line summary of P2 #1]
+2. [One-line summary of P2 #2]
+...
+
+Full details in: plans/{{feature}}/03-plan/plan-review.md
+```
+
+Then:
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "There are [N] P2 findings. Would you like to address any?",
+    "header": "P2 Items",
+    "options": [
+      {"label": "Skip P2s (Recommended)", "description": "Leave as documented — implementers can reference the review"},
+      {"label": "Show details", "description": "Review each P2 and choose which to fix"},
+      {"label": "Fix all", "description": "Address all [N] P2 items now"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+If "Show details" → present each P2 with its full description and
+recommended action, as a multiselect so the user can pick which to fix.
+If "Fix all" → apply all recommended P2 fixes.
+If "Skip" → proceed to commit.
 
 ## Apply Fixes
 
@@ -715,7 +757,7 @@ Report:
 
 **P0 resolved:** N of N
 **P1 resolved:** N of N
-**P2 documented:** N
+**P2 resolved:** N of N (or "skipped" if user chose to skip)
 
 **Plan updated:** Yes / No
 **Spec updated:** Yes / No
@@ -789,7 +831,7 @@ Report completion:
 **Review summary:**
 - P0: [N] found, [N] resolved
 - P1: [N] found, [N] resolved
-- P2: [N] documented
+- P2: [N] found, [N] resolved / skipped
 - Plan changes: [summary]
 
 **Commit:** [short hash]
