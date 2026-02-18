@@ -37,12 +37,12 @@ Load the spec and questions files, then perform dual assessment.
 ## Inputs
 
 **Required:**
-- `plans/{{feature}}/spec.md` - The spec from brainstorming step
+- `plans/{{feature}}/02-spec/spec.md` - The spec from brainstorming step
 
 **Optional (if exists):**
-- `plans/{{feature}}/question-triage.md` - Shows which scope user selected
-- `plans/{{feature}}/scope-questions/questions.md` - Original scope questions
-- `plans/{{feature}}/scope-questions/context.md` - Codebase context from step 0
+- `plans/{{feature}}/01-scope/question-triage.md` - Shows which scope user selected
+- `plans/{{feature}}/01-scope/questions.md` - Original scope questions
+- `plans/{{feature}}/01-scope/context.md` - Codebase context from step 0
 
 ## Process
 
@@ -172,7 +172,7 @@ Combine both assessments into a prioritized list:
 
 ## Output
 
-Write assessment to: `plans/{{feature}}/spec-review-assessment.md`
+Write assessment to: `plans/{{feature}}/02-spec/spec-review-assessment.md`
 
 If NO gaps found:
 - Note "Spec looks complete!"
@@ -356,7 +356,7 @@ AskUserQuestion(
 
 ### 3. Update Spec (if confirmed)
 
-Modify `plans/{{feature}}/spec.md`:
+Modify `plans/{{feature}}/02-spec/spec.md`:
 
 **In "Scope Questions & Answers" section:**
 - Add any newly answered questions
@@ -392,7 +392,7 @@ Modify `plans/{{feature}}/spec.md`:
 ### 4. Cleanup
 
 Delete temporary assessment file:
-- `plans/{{feature}}/spec-review-assessment.md`
+- `plans/{{feature}}/02-spec/spec-review-assessment.md`
 
 ### 5. Final Output
 
@@ -401,7 +401,7 @@ Report completion:
 ```
 ## Spec Review Complete
 
-**Updated:** plans/{{feature}}/spec.md
+**Updated:** plans/{{feature}}/02-spec/spec.md
 
 **Status:** Ready for next pipeline step (multi-agent review)
 
@@ -434,13 +434,13 @@ Commit the updated spec to git.
 
 ## Files to Commit
 
-- `plans/{{feature}}/spec.md` - The updated spec document
+- `plans/{{feature}}/02-spec/spec.md` - The updated spec document
 
 ## Commit Process
 
 1. Stage the files:
    ```bash
-   git add plans/{{feature}}/spec.md
+   git add plans/{{feature}}/02-spec/spec.md
    ```
 
 2. Create commit with descriptive message:
@@ -472,7 +472,7 @@ Report completion:
 ## Spec Review Committed
 
 **Files committed:**
-- plans/{{feature}}/spec.md
+- plans/{{feature}}/02-spec/spec.md
 
 **Commit:** [short hash]
 **Pushed to:** origin/[branch]

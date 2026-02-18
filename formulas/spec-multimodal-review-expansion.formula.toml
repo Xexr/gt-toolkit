@@ -38,7 +38,7 @@ Check for existing context or gather fresh context via Haiku.
 
 ## Check for Existing Context
 
-Look for: `plans/{{feature}}/scope-questions/context.md`
+Look for: `plans/{{feature}}/01-scope/context.md`
 
 **If context.md exists:**
 - Skip Haiku context gathering
@@ -57,7 +57,7 @@ Task(
   model="haiku",
   prompt="Gather codebase context relevant to reviewing this spec.
 
-Spec location: plans/{{feature}}/spec.md
+Spec location: plans/{{feature}}/02-spec/spec.md
 
 Target codebase: [current working directory]
 
@@ -114,7 +114,7 @@ the multi-model consensus value.
 
 ## Pre-Read the Spec
 
-Read `plans/{{feature}}/spec.md` and include it verbatim in all agent prompts.
+Read `plans/{{feature}}/02-spec/spec.md` and include it verbatim in all agent prompts.
 
 ## Review Brief (All Categories)
 
@@ -221,11 +221,11 @@ cat > /tmp/gpt_review_prompt.txt <<'EOF'
 
 ## Spec to Review
 
-Read the spec from: plans/{{feature}}/spec.md
+Read the spec from: plans/{{feature}}/02-spec/spec.md
 
 ## Codebase Context
 
-Read codebase context from: plans/{{feature}}/scope-questions/context.md (if it exists)
+Read codebase context from: plans/{{feature}}/01-scope/context.md (if it exists)
 
 Target codebase: [current working directory]
 
@@ -374,7 +374,7 @@ Consolidate all ambiguities from the issues list:
 
 ## Review Configuration
 
-- **Spec:** plans/{{feature}}/spec.md
+- **Spec:** plans/{{feature}}/02-spec/spec.md
 - **Models Used:** [List which succeeded, note any failures]
 - **Categories:** All (Codebase Match, Design Quality, Security, etc.)
 - **Context Source:** [Existing context.md | Fresh Haiku gather]
@@ -435,7 +435,7 @@ Consolidate all ambiguities from the issues list:
 
 ## Save Review
 
-Write synthesis to: `plans/{{feature}}/spec-review.md`
+Write synthesis to: `plans/{{feature}}/02-spec/spec-review.md`
 """
 
 # ============================================================================
@@ -479,7 +479,7 @@ without needing to open the review file:
 
 ### Model Agreement: X%
 
-Full review saved to: plans/{{feature}}/spec-review.md
+Full review saved to: plans/{{feature}}/02-spec/spec-review.md
 ```
 
 ## Gate
@@ -627,15 +627,15 @@ Commit the review file and any spec updates.
 
 ## Files to Commit
 
-- `plans/{{feature}}/spec-review.md` - The review document (always)
-- `plans/{{feature}}/spec.md` - If updated with clarifications
+- `plans/{{feature}}/02-spec/spec-review.md` - The review document (always)
+- `plans/{{feature}}/02-spec/spec.md` - If updated with clarifications
 
 ## Commit Process
 
 1. Stage files:
    ```bash
-   git add plans/{{feature}}/spec-review.md
-   git add plans/{{feature}}/spec.md  # if modified
+   git add plans/{{feature}}/02-spec/spec-review.md
+   git add plans/{{feature}}/02-spec/spec.md  # if modified
    ```
 
 2. Create commit:
@@ -667,8 +667,8 @@ Commit the review file and any spec updates.
 ## Review Committed
 
 **Files committed:**
-- plans/{{feature}}/spec-review.md
-- plans/{{feature}}/spec.md (if updated)
+- plans/{{feature}}/02-spec/spec-review.md
+- plans/{{feature}}/02-spec/spec.md (if updated)
 
 **Commit:** [short hash]
 **Pushed to:** origin/[branch]

@@ -33,9 +33,9 @@ Check for prior scope questions and present session options to user.
 
 ## Check for Questions File
 
-Look for: `plans/{{feature}}/scope-questions/questions.md`
+Look for: `plans/{{feature}}/01-scope/questions.md`
 
-Also check for codebase context: `plans/{{feature}}/scope-questions/context.md`
+Also check for codebase context: `plans/{{feature}}/01-scope/context.md`
 
 ---
 
@@ -99,7 +99,7 @@ Present this message:
 ```
 ## No Scope Questions Found
 
-No questions file found at `plans/{{feature}}/scope-questions/questions.md`.
+No questions file found at `plans/{{feature}}/01-scope/questions.md`.
 
 This means either:
 - The multimodal scope questions step wasn't run for this feature
@@ -142,8 +142,8 @@ description = """
 Analyze questions based on user's selected scope and categorize them.
 
 ## Inputs
-- plans/{{feature}}/scope-questions/questions.md
-- plans/{{feature}}/scope-questions/context.md (codebase context)
+- plans/{{feature}}/01-scope/questions.md
+- plans/{{feature}}/01-scope/context.md (codebase context)
 - User's selected question scope from kickoff step
 
 ## Process
@@ -216,7 +216,7 @@ Order questions to maximize cascading:
 - Estimate total human questions needed
 
 ## Output
-Write to: plans/{{feature}}/question-triage.md
+Write to: plans/{{feature}}/01-scope/question-triage.md
 
 ```markdown
 # Question Triage: {{feature}}
@@ -403,7 +403,7 @@ Use this mode if no questions file was found.
 
 ### Phase 1: Understand Project Context
 
-- Read codebase context if `plans/{{feature}}/scope-questions/context.md` exists
+- Read codebase context if `plans/{{feature}}/01-scope/context.md` exists
 - Otherwise, explore: check current project state (files, docs, recent commits)
 - Understand what exists that this feature will integrate with
 
@@ -530,8 +530,13 @@ needs = ["{target}.brainstorm-session"]
 description = """
 Write the validated design as a complete spec document.
 
+## Setup
+```bash
+mkdir -p plans/{{feature}}/02-spec
+```
+
 ## Output Location
-Write to: `plans/{{feature}}/spec.md`
+Write to: `plans/{{feature}}/02-spec/spec.md`
 
 ## Document Structure
 
@@ -689,9 +694,9 @@ Recommended path forward:
 
 ## Appendix: Source Files
 
-- `plans/{{feature}}/scope-questions/questions.md` - Original scope questions
-- `plans/{{feature}}/scope-questions/context.md` - Codebase context
-- `plans/{{feature}}/question-triage.md` - Question analysis
+- `plans/{{feature}}/01-scope/questions.md` - Original scope questions
+- `plans/{{feature}}/01-scope/context.md` - Codebase context
+- `plans/{{feature}}/01-scope/question-triage.md` - Question analysis
 ```
 
 ---
@@ -725,8 +730,8 @@ Commit the spec and related files to git.
 ## Files to Commit
 
 Add all files in the feature's plans directory:
-- `plans/{{feature}}/spec.md` - The spec document
-- `plans/{{feature}}/question-triage.md` - Question analysis (if created)
+- `plans/{{feature}}/02-spec/spec.md` - The spec document
+- `plans/{{feature}}/01-scope/question-triage.md` - Question analysis (if created)
 
 ## Commit Process
 
@@ -769,8 +774,8 @@ Report completion:
 ## Spec Committed
 
 **Files committed:**
-- plans/{{feature}}/spec.md
-- plans/{{feature}}/question-triage.md (if applicable)
+- plans/{{feature}}/02-spec/spec.md
+- plans/{{feature}}/01-scope/question-triage.md (if applicable)
 
 **Commit:** [short hash]
 **Pushed to:** origin/[branch]

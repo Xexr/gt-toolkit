@@ -4,7 +4,7 @@
 # Explores the codebase in depth (3 parallel agents), then writes a plan
 # with phased delivery, file-level mapping, and acceptance criteria.
 #
-# Requires a spec at plans/<feature>/spec.md (output of spec-workflow).
+# Requires a spec at plans/<feature>/02-spec/spec.md (output of spec-workflow).
 #
 # Usage:
 #   gt sling plan-writing dypt/crew/neo \
@@ -19,8 +19,8 @@ integration surface, and patterns), consolidates findings, then writes an
 implementation plan with phased delivery, file-level mapping, and spec
 coverage verification.
 
-Requires: plans/<feature>/spec.md (run spec-workflow first).
-Output: plans/<feature>/plan/plan.md
+Requires: plans/<feature>/02-spec/spec.md (run spec-workflow first).
+Output: plans/<feature>/03-plan/plan.md
 """
 formula = "plan-writing"
 type = "workflow"

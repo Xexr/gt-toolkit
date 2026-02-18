@@ -30,7 +30,7 @@ Surfaces design blind spots using a 3x3 matrix of models (Opus, GPT, Gemini) and
 3. Consolidate per-model (3 parallel Haiku tasks)
 4. Synthesize into a single prioritized question backlog (P0/P1/P2/P3)
 
-**Outputs:** `plans/{feature}/scope-questions/questions.md` plus per-model analysis files
+**Outputs:** `plans/{feature}/01-scope/questions.md` plus per-model analysis files
 
 **Vars:** `feature` (name), `brief` (1-3 sentence description)
 
@@ -51,7 +51,7 @@ Turns scope questions into a validated design spec through structured dialogue.
 
 **Two modes:** If scope questions exist from Stage 1, uses them to accelerate brainstorming. Otherwise runs standard brainstorming from scratch.
 
-**Outputs:** `plans/{feature}/spec.md`, `plans/{feature}/question-triage.md`
+**Outputs:** `plans/{feature}/02-spec/spec.md`, `plans/{feature}/01-scope/question-triage.md`
 
 **Vars:** `feature`, `brief`
 
@@ -70,7 +70,7 @@ Reviews the spec for completeness with a two-pass approach.
 4. Summarize refinements and update spec
 5. Commit
 
-**Outputs:** Updated `plans/{feature}/spec.md` with "Spec Review" section
+**Outputs:** Updated `plans/{feature}/02-spec/spec.md` with "Spec Review" section
 
 **Vars:** `feature`
 
@@ -90,7 +90,7 @@ Final quality gate using 3 models in parallel across 12 review categories.
 5. Resolve ambiguities, update spec with review section
 6. Commit
 
-**Outputs:** `plans/{feature}/spec-review.md`, updated `plans/{feature}/spec.md`
+**Outputs:** `plans/{feature}/02-spec/spec-review.md`, updated `plans/{feature}/02-spec/spec.md`
 
 **Vars:** `feature`
 
@@ -111,11 +111,11 @@ Converts a reviewed spec into a comprehensive implementation plan by running dee
 4. Write implementation plan with phased delivery, spec coverage matrix, and technical risks
 5. Commit plan and artifacts
 
-**Outputs:** `plans/{feature}/plan/plan.md`, `plans/{feature}/plan/plan-context.md`
+**Outputs:** `plans/{feature}/03-plan/plan.md`, `plans/{feature}/03-plan/plan-context.md`
 
 **Vars:** `feature`, `brief`
 
-**Prerequisite:** Run `spec-workflow` (or at least `spec-brainstorm`) first to produce `plans/{feature}/spec.md`.
+**Prerequisite:** Run `spec-workflow` (or at least `spec-brainstorm`) first to produce `plans/{feature}/02-spec/spec.md`.
 
 ---
 

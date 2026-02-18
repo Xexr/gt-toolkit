@@ -38,7 +38,7 @@ Use Haiku to quickly explore the codebase and create a context document that all
 
 ## Setup
 ```bash
-mkdir -p plans/{{feature}}/scope-questions
+mkdir -p plans/{{feature}}/01-scope
 ```
 
 ## Dispatch Haiku Explorer
@@ -85,7 +85,7 @@ Explore this codebase and create a context summary that will help other LLMs ask
 - Any anti-patterns to avoid?
 
 ## Output
-Write your findings to: plans/{{feature}}/scope-questions/context.md
+Write your findings to: plans/{{feature}}/01-scope/context.md
 
 Use this format:
 ```markdown
@@ -144,7 +144,7 @@ Task(
   prompt="You are a User Advocate analyzing a feature brief. Write your output to a file.
 
 ## Step 1: Read Codebase Context
-First, read plans/{{feature}}/scope-questions/context.md to understand the existing app.
+First, read plans/{{feature}}/01-scope/context.md to understand the existing app.
 
 ## Feature Brief
 {{brief}}
@@ -176,7 +176,7 @@ For each question: state clearly + explain why it matters (1 sentence).
 Do NOT ask technical questions. Focus on: Does this serve users well?
 
 ## OUTPUT INSTRUCTIONS
-Write your complete output to: plans/{{feature}}/scope-questions/opus-user-advocate.tmp
+Write your complete output to: plans/{{feature}}/01-scope/opus-user-advocate.tmp
 Use the Write tool. Do NOT return output to the conversation - write to the file only."
 )
 ```
@@ -191,7 +191,7 @@ Task(
   prompt="You are a Product Designer analyzing a feature brief. Write your output to a file.
 
 ## Step 1: Read Codebase Context
-First, read plans/{{feature}}/scope-questions/context.md to understand the existing app.
+First, read plans/{{feature}}/01-scope/context.md to understand the existing app.
 
 ## Feature Brief
 {{brief}}
@@ -228,7 +228,7 @@ For each question: state clearly + explain why it matters (1 sentence).
 Do NOT ask technical questions. Focus on: What should this LOOK and FEEL like?
 
 ## OUTPUT INSTRUCTIONS
-Write your complete output to: plans/{{feature}}/scope-questions/opus-product-designer.tmp
+Write your complete output to: plans/{{feature}}/01-scope/opus-product-designer.tmp
 Use the Write tool. Do NOT return output to the conversation - write to the file only."
 )
 ```
@@ -243,7 +243,7 @@ Task(
   prompt="You are a Domain Expert analyzing a feature brief. Write your output to a file.
 
 ## Step 1: Read Codebase Context
-First, read plans/{{feature}}/scope-questions/context.md to understand the existing app.
+First, read plans/{{feature}}/01-scope/context.md to understand the existing app.
 
 ## Feature Brief
 {{brief}}
@@ -281,7 +281,7 @@ For each question: state clearly + explain why it matters (1 sentence).
 Do NOT ask technical questions. Focus on: Do we understand the PROBLEM?
 
 ## OUTPUT INSTRUCTIONS
-Write your complete output to: plans/{{feature}}/scope-questions/opus-domain-expert.tmp
+Write your complete output to: plans/{{feature}}/01-scope/opus-domain-expert.tmp
 Use the Write tool. Do NOT return output to the conversation - write to the file only."
 )
 ```
@@ -308,12 +308,12 @@ Task(
   prompt="Consolidate three Opus analysis files into one document.
 
 ## Input Files (read these first)
-- plans/{{feature}}/scope-questions/opus-user-advocate.tmp
-- plans/{{feature}}/scope-questions/opus-product-designer.tmp
-- plans/{{feature}}/scope-questions/opus-domain-expert.tmp
+- plans/{{feature}}/01-scope/opus-user-advocate.tmp
+- plans/{{feature}}/01-scope/opus-product-designer.tmp
+- plans/{{feature}}/01-scope/opus-domain-expert.tmp
 
 ## Output
-Write to: plans/{{feature}}/scope-questions/opus-questions.md
+Write to: plans/{{feature}}/01-scope/opus-questions.md
 
 Use this format:
 ```markdown
@@ -354,7 +354,7 @@ Run THREE Codex CLI calls in parallel. Each writes to a temp file.
 **IMPORTANT: File paths must be relative to the repository root, NOT under docs/.**
 
 ## Context Injection
-Before dispatching, read `plans/{{feature}}/scope-questions/context.md` and inject its contents
+Before dispatching, read `plans/{{feature}}/01-scope/context.md` and inject its contents
 into each HEREDOC prompt under the "## Codebase Context" section.
 
 ## Pre-flight
@@ -370,12 +370,12 @@ Run all three in parallel using `run_in_background=true` on the Bash calls.
 ### Analysis 1: User Advocate (GPT)
 ```bash
 codex exec -m "gpt-5.3-codex" -c reasoning_effort="high" \
-  -o plans/{{feature}}/scope-questions/gpt-user-advocate.tmp \
+  -o plans/{{feature}}/01-scope/gpt-user-advocate.tmp \
   "$(cat <<'PROMPT'
 You are a User Advocate analyzing a feature brief.
 
 ## Codebase Context
-Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
+Read the file at plans/{{feature}}/01-scope/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -412,12 +412,12 @@ PROMPT
 ### Analysis 2: Product Designer (GPT)
 ```bash
 codex exec -m "gpt-5.3-codex" -c reasoning_effort="high" \
-  -o plans/{{feature}}/scope-questions/gpt-product-designer.tmp \
+  -o plans/{{feature}}/01-scope/gpt-product-designer.tmp \
   "$(cat <<'PROMPT'
 You are a Product Designer analyzing a feature brief.
 
 ## Codebase Context
-Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
+Read the file at plans/{{feature}}/01-scope/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -459,12 +459,12 @@ PROMPT
 ### Analysis 3: Domain Expert (GPT)
 ```bash
 codex exec -m "gpt-5.3-codex" -c reasoning_effort="high" \
-  -o plans/{{feature}}/scope-questions/gpt-domain-expert.tmp \
+  -o plans/{{feature}}/01-scope/gpt-domain-expert.tmp \
   "$(cat <<'PROMPT'
 You are a Domain Expert analyzing a feature brief.
 
 ## Codebase Context
-Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
+Read the file at plans/{{feature}}/01-scope/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -526,12 +526,12 @@ Task(
   prompt="Consolidate three GPT analysis files into one document.
 
 ## Input Files (read these first)
-- plans/{{feature}}/scope-questions/gpt-user-advocate.tmp
-- plans/{{feature}}/scope-questions/gpt-product-designer.tmp
-- plans/{{feature}}/scope-questions/gpt-domain-expert.tmp
+- plans/{{feature}}/01-scope/gpt-user-advocate.tmp
+- plans/{{feature}}/01-scope/gpt-product-designer.tmp
+- plans/{{feature}}/01-scope/gpt-domain-expert.tmp
 
 ## Output
-Write to: plans/{{feature}}/scope-questions/gpt-questions.md
+Write to: plans/{{feature}}/01-scope/gpt-questions.md
 
 Use this format:
 ```markdown
@@ -572,7 +572,7 @@ Run THREE Gemini CLI calls in parallel. Each writes to a temp file.
 **IMPORTANT: File paths must be relative to the repository root, NOT under docs/.**
 
 ## Context Injection
-Before dispatching, read `plans/{{feature}}/scope-questions/context.md` and inject its contents
+Before dispatching, read `plans/{{feature}}/01-scope/context.md` and inject its contents
 into each prompt under the "## Codebase Context" section.
 
 ## Pre-flight
@@ -591,7 +591,7 @@ gemini "$(cat <<'PROMPT'
 You are a User Advocate analyzing a feature brief.
 
 ## Codebase Context
-Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
+Read the file at plans/{{feature}}/01-scope/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -622,7 +622,7 @@ Generate at least 10 questions per category - more if warranted. Do not artifici
 For each: state clearly + explain why it matters.
 Do NOT ask technical questions.
 PROMPT
-)" --model gemini-3-pro-preview -y -o text 2>>plans/{{feature}}/scope-questions/gemini-stderr.log > plans/{{feature}}/scope-questions/gemini-user-advocate.tmp
+)" --model gemini-3-pro-preview -y -o text 2>>plans/{{feature}}/01-scope/gemini-stderr.log > plans/{{feature}}/01-scope/gemini-user-advocate.tmp
 ```
 
 ### Analysis 2: Product Designer (Gemini)
@@ -631,7 +631,7 @@ gemini "$(cat <<'PROMPT'
 You are a Product Designer analyzing a feature brief.
 
 ## Codebase Context
-Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
+Read the file at plans/{{feature}}/01-scope/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -667,7 +667,7 @@ Generate at least 10 questions per category - more if warranted. Do not artifici
 For each: state clearly + explain why it matters.
 Do NOT ask technical questions.
 PROMPT
-)" --model gemini-3-pro-preview -y -o text 2>>plans/{{feature}}/scope-questions/gemini-stderr.log > plans/{{feature}}/scope-questions/gemini-product-designer.tmp
+)" --model gemini-3-pro-preview -y -o text 2>>plans/{{feature}}/01-scope/gemini-stderr.log > plans/{{feature}}/01-scope/gemini-product-designer.tmp
 ```
 
 ### Analysis 3: Domain Expert (Gemini)
@@ -676,7 +676,7 @@ gemini "$(cat <<'PROMPT'
 You are a Domain Expert analyzing a feature brief.
 
 ## Codebase Context
-Read the file at plans/{{feature}}/scope-questions/context.md for full codebase context before proceeding.
+Read the file at plans/{{feature}}/01-scope/context.md for full codebase context before proceeding.
 
 ## Feature Brief
 {{brief}}
@@ -713,7 +713,7 @@ Generate at least 10 questions per category - more if warranted. Do not artifici
 For each: state clearly + explain why it matters.
 Do NOT ask technical questions.
 PROMPT
-)" --model gemini-3-pro-preview -y -o text 2>>plans/{{feature}}/scope-questions/gemini-stderr.log > plans/{{feature}}/scope-questions/gemini-domain-expert.tmp
+)" --model gemini-3-pro-preview -y -o text 2>>plans/{{feature}}/01-scope/gemini-stderr.log > plans/{{feature}}/01-scope/gemini-domain-expert.tmp
 ```
 
 ## Wait for Completion
@@ -738,12 +738,12 @@ Task(
   prompt="Consolidate three Gemini analysis files into one document.
 
 ## Input Files (read these first)
-- plans/{{feature}}/scope-questions/gemini-user-advocate.tmp
-- plans/{{feature}}/scope-questions/gemini-product-designer.tmp
-- plans/{{feature}}/scope-questions/gemini-domain-expert.tmp
+- plans/{{feature}}/01-scope/gemini-user-advocate.tmp
+- plans/{{feature}}/01-scope/gemini-product-designer.tmp
+- plans/{{feature}}/01-scope/gemini-domain-expert.tmp
 
 ## Output
-Write to: plans/{{feature}}/scope-questions/gemini-questions.md
+Write to: plans/{{feature}}/01-scope/gemini-questions.md
 
 Use this format:
 ```markdown
@@ -782,9 +782,9 @@ description = """
 Synthesize all three model documents into a final prioritized question backlog.
 
 ## Input Files
-- plans/{{feature}}/scope-questions/opus-questions.md
-- plans/{{feature}}/scope-questions/gpt-questions.md
-- plans/{{feature}}/scope-questions/gemini-questions.md
+- plans/{{feature}}/01-scope/opus-questions.md
+- plans/{{feature}}/01-scope/gpt-questions.md
+- plans/{{feature}}/01-scope/gemini-questions.md
 
 ## Synthesis Process
 
@@ -827,7 +827,7 @@ Count questions at each stage to verify nothing is lost:
 - P0 + P1 + P2 + P3 = [Y] (must match unique count)
 
 ## Output
-Create `plans/{{feature}}/scope-questions/questions.md` with the synthesized question backlog.
+Create `plans/{{feature}}/01-scope/questions.md` with the synthesized question backlog.
 
 Use GLOBAL sequential numbering across all questions (1, 2, 3, ... N).
 Do NOT restart numbering within each section or priority tier.

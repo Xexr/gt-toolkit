@@ -29,7 +29,7 @@ picture before marking done.
 
 Use `bd gate resolve <gate-id>` to approve and complete.
 
-Output: Fully reviewed spec at plans/{{feature}}/spec.md
+Output: Fully reviewed spec at plans/{{feature}}/02-spec/spec.md
 """
 formula = "spec-workflow"
 type = "workflow"
@@ -61,8 +61,8 @@ This step is expanded into the full 3x3 matrix analysis:
 4. Synthesize into prioritized question backlog (P0/P1/P2/P3)
 
 **Outputs:**
-- plans/{{feature}}/scope-questions/context.md
-- plans/{{feature}}/scope-questions/questions.md (synthesized)
+- plans/{{feature}}/01-scope/context.md
+- plans/{{feature}}/01-scope/questions.md (synthesized)
 - Per-model question files
 """
 
@@ -86,8 +86,8 @@ This step is expanded into the full brainstorming workflow:
 **Interactive:** This step involves dialogue with user for branch point decisions.
 
 **Outputs:**
-- plans/{{feature}}/question-triage.md
-- plans/{{feature}}/spec.md
+- plans/{{feature}}/01-scope/question-triage.md
+- plans/{{feature}}/02-spec/spec.md
 """
 
 # ============================================================================
@@ -111,7 +111,7 @@ This step is expanded into the full interview workflow:
 **Interactive:** May ask clarifying questions if gaps found.
 
 **Outputs:**
-- Updated plans/{{feature}}/spec.md with "Spec Review" section
+- Updated plans/{{feature}}/02-spec/spec.md with "Spec Review" section
 """
 
 # ============================================================================
@@ -133,8 +133,8 @@ This step is expanded into the full multimodal review workflow:
 5. Action: select issues, resolve ambiguities, update spec
 
 **Outputs:**
-- plans/{{feature}}/spec-review.md
-- Updated plans/{{feature}}/spec.md with "Multi-Model Review" section
+- plans/{{feature}}/02-spec/spec-review.md
+- Updated plans/{{feature}}/02-spec/spec.md with "Multi-Model Review" section
 """
 
 # ============================================================================
@@ -150,8 +150,8 @@ description = """
 Human gate: Final review before marking spec workflow complete.
 
 **Review:**
-- plans/{{feature}}/spec.md (final version)
-- plans/{{feature}}/spec-review.md (review findings)
+- plans/{{feature}}/02-spec/spec.md (final version)
+- plans/{{feature}}/02-spec/spec-review.md (review findings)
 
 **Check:**
 - All critical/high issues addressed?
@@ -182,10 +182,10 @@ Spec workflow is complete.
 - Step 4: Multimodal review completed (issues resolved)
 
 **Final outputs:**
-- plans/{{feature}}/spec.md (reviewed spec)
-- plans/{{feature}}/spec-review.md (review findings)
-- plans/{{feature}}/scope-questions/ (analysis artifacts)
-- plans/{{feature}}/question-triage.md (triage record)
+- plans/{{feature}}/02-spec/spec.md (reviewed spec)
+- plans/{{feature}}/02-spec/spec-review.md (review findings)
+- plans/{{feature}}/01-scope/ (analysis artifacts)
+- plans/{{feature}}/01-scope/question-triage.md (triage record)
 
 **Next steps:**
 - Implementation planning (break into epics/tasks)
