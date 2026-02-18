@@ -137,7 +137,7 @@ These formulas are thin wrappers that let you run a single pipeline stage in iso
 
 ### spec-workflow
 
-The full pipeline. Composes all four expansion formulas sequentially with dependency chains between steps and a single human gate at the end.
+The full spec pipeline. Composes all four expansion formulas sequentially with dependency chains between steps and a single human gate at the end.
 
 ```
 Stage 1: Scope Questions --> Stage 2: Brainstorm --> Stage 3: Interview --> Stage 4: Review --> Gate: Final Review
