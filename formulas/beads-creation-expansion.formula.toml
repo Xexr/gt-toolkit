@@ -10,9 +10,8 @@
 #   3. Review Pass 1: Completeness (sequential — fix before next pass)
 #   4. Review Pass 2: Dependencies (sequential — fix before next pass)
 #   5. Review Pass 3: Clarity (sequential — fix before next pass)
-#   6. User checkpoint (AskUserQuestion with summary)
-#   7. Execute (create beads via bd commands)
-#   8. Report & commit
+#   6. Execute (create beads via bd commands)
+#   7. Report & commit
 
 description = """
 EXPANSION: Convert a reviewed implementation plan into beads issues.
@@ -28,11 +27,11 @@ and produces a fully-structured beads hierarchy:
 - Blocker dependencies (only TRUE blockers — maximize parallelism)
 
 Uses 3 sequential review passes with fixes applied between each,
-then a user checkpoint before executing bd commands.
+then executes bd commands to create beads.
 """
 formula = "beads-creation-expansion"
 type = "expansion"
-version = 1
+version = 2
 
 # Note: vars are inherited from the parent workflow that expands this
 # Required vars: feature
@@ -47,23 +46,52 @@ title = "Validate inputs"
 description = """
 Validate that all required artifacts exist before drafting beads structure.
 
-## Bead Lifecycle Commands
+## Step Lifecycle
+
+Each step in this formula corresponds to a wisp bead. At the start,
+note the wisp IDs for all steps:
+
+```bash
+bd show <formula-epic-wisp-id>   # lists child wisps = your steps
+```
+
+As you complete each step, close its wisp BEFORE moving to the next:
+
+```bash
+bd close <this-step-wisp-id>
+```
+
+Do NOT batch-close all wisps at the end — close each one as you finish it.
+This keeps status visible to anyone watching the formula's progress.
+
+## Bead Commands Reference
 
 This formula creates beads using `bd` commands. Reference:
 
 ```bash
-# Create an epic
-bd create "Title" -t epic -p <priority> -d "Description"
+# Create an epic (with optional parent)
+bd create "Title" -t epic -p <priority> -d "Description" \
+  [--parent <parent-id>]
 
-# Create a task issue
+# Create a task issue (with optional parent and blocker deps)
 bd create "Title" -t task -p <priority> -d "Description" \
-  --acceptance "- [ ] Criterion 1\n- [ ] Criterion 2"
+  --acceptance "- [ ] Criterion 1\\n- [ ] Criterion 2" \
+  [--parent <parent-id>] \
+  [--deps "<blocker-id-1>,<blocker-id-2>"]
 
-# Add parent-child relationship (epic contains issue)
+# --parent: sets parent-child relationship at creation time
+# --deps:   specifies blocker dependencies (this task is BLOCKED BY the listed IDs)
+#           default type is "blocks" — no prefix needed
+#           multiple IDs are comma-separated
+
+# Add blocker dependency after creation (if needed)
+# Syntax: bd dep add <blocked-id> <blocker-id>
+# Meaning: <blocked-id> depends on (is blocked by) <blocker-id>
+bd dep add <blocked-id> <blocker-id>
+
+# Add parent-child relationship after creation (if needed)
+# Syntax: bd dep add <parent-id> <child-id> --type parent-child
 bd dep add <parent-id> <child-id> --type parent-child
-
-# Add blocker dependency (A must finish before B can start)
-bd dep add <blocker-id> <blocked-id>
 
 # Check for dependency cycles
 bd dep cycles
@@ -78,7 +106,7 @@ bd show <bead-id>
 bd close <bead-id>
 ```
 
-Do NOT use `bd start`, `bd progress`, or `bd set-state` — these do not exist.
+Do NOT use `bd start` or `bd progress` — these do not exist.
 
 ## Required Files
 
@@ -222,6 +250,13 @@ issues in Phase 1 if they aren't already covered by numbered tasks.
 
 Write the complete draft to: `plans/{{feature}}/04-beads/beads-draft.md`
 
+**IMPORTANT — Numbering and references:**
+- Use plan task numbers (X.Y) consistently throughout the draft.
+- Parent references MUST use the numbered format: `**Parent:** Phase N`
+- Dependency references MUST use the numbered format: `Task X.Y ([Title])`
+- The Dependencies table columns follow `bd dep add` argument order:
+  first column = the blocked task, second column = what blocks it.
+
 Use this format:
 ```markdown
 # Beads Draft: {{feature}}
@@ -246,15 +281,15 @@ Use this format:
 
 **Type:** epic
 **Priority:** P1
-**Parent:** {{feature}} (feature epic)
+**Parent:** Feature epic
 **Description:** [Phase objective from plan]
 
 #### Issue: [Task Title] (1.1)
 
 **Type:** task
 **Priority:** [P1/P2]
-**Parent:** Phase 1 sub-epic
-**Dependencies:** [None / List of task IDs this is blocked by]
+**Parent:** Phase 1
+**Dependencies:** [None / Task X.Y ([Title]), Task X.Z ([Title])]
 **Description:**
 [Full description — what, files, key details]
 
@@ -274,11 +309,15 @@ Use this format:
 
 ## Dependencies
 
-| Blocker | Blocked | Reason |
-|---------|---------|--------|
-| Task 1.1 | Task 1.3 | [Why — from plan] |
-| Task 1.2 | Task 2.1 | [Why — cross-phase prerequisite] |
+| Blocked Task | Blocked By | Reason |
+|-------------|------------|--------|
+| Task 1.3 ([Title]) | Task 1.1 ([Title]) | [Why — from plan] |
+| Task 2.1 ([Title]) | Task 1.2 ([Title]) | [Why — cross-phase prerequisite] |
 ...
+
+**Reading this table:** each row means the "Blocked Task" cannot start until
+"Blocked By" completes. This matches `bd dep add` argument order:
+`bd dep add <blocked-task-id> <blocked-by-id>`.
 
 ## Coverage Matrix
 
@@ -472,10 +511,10 @@ Return your findings as a structured report:
 **Circular chains:** [none / list]
 
 ### False Blockers (Remove)
-- [Blocker] → [Blocked]: [Why it's false — they can run in parallel because...]
+- [Task X.Y] blocked by [Task A.B]: [Why it's false — they can run in parallel because...]
 
 ### Missing Blockers (Add)
-- [Task A] should block [Task B]: [Why — B uses output of A]
+- [Task X.Y] should be blocked by [Task A.B]: [Why — Y uses output of B]
 
 ### Parallelism Assessment
 - Ready immediately: N tasks
@@ -512,7 +551,7 @@ title = "Review Pass 3: Clarity"
 needs = ["{target}.review-dependencies"]
 description = """
 Launch a subagent to review each issue for implementation readiness.
-Apply fixes before proceeding to user checkpoint.
+Apply fixes before proceeding to execution.
 
 ## Dispatch Review Agent
 
@@ -616,98 +655,30 @@ After all three passes, report:
 **Pass 3 (Clarity):** [PASS/FAIL — N fixes applied]
 
 Draft updated: plans/{{feature}}/04-beads/beads-draft.md
-Proceeding to user checkpoint...
+Proceeding to execution...
 ```
 """
 
 # ============================================================================
-# STEP 6: USER CHECKPOINT
-# ============================================================================
-
-[[template]]
-id = "{target}.user-checkpoint"
-title = "User checkpoint before execution"
-needs = ["{target}.review-clarity"]
-description = """
-Present the final draft structure to the user and get confirmation before
-creating beads.
-
-## Present Summary
-
-Read the final draft from `plans/{{feature}}/04-beads/beads-draft.md` and
-present a concise summary:
-
-```
-## Beads Creation: {{feature}}
-
-**Review passes:** 3/3 complete
-**Source:** plans/{{feature}}/03-plan/plan.md
-
-### Structure
-
-| Level | Count |
-|-------|-------|
-| Feature epic | 1 |
-| Phase sub-epics | N |
-| Task issues | M |
-| Blocker dependencies | K |
-| Ready immediately | W |
-
-### Phases
-
-1. **Phase 1: [Name]** — N issues ([list ready ones])
-2. **Phase 2: [Name]** — N issues ([list ready ones])
-...
-
-### Coverage
-Plan tasks: N → Beads: N (100%)
-
-### Critical Path
-[Longest dependency chain: Task A → Task B → Task C (N steps)]
-
-Full draft: plans/{{feature}}/04-beads/beads-draft.md
-```
-
-## Get Confirmation
-
-```
-AskUserQuestion(
-  questions=[{
-    "question": "Ready to create [M] beads ([N] sub-epics + [K] issues + 1 feature epic)? Review the draft if needed: plans/{{feature}}/04-beads/beads-draft.md",
-    "header": "Create beads",
-    "options": [
-      {"label": "Create beads (Recommended)", "description": "Execute bd commands to create the full hierarchy"},
-      {"label": "Review draft first", "description": "I want to read the draft before confirming — pause here"},
-      {"label": "Abort", "description": "Don't create beads — I want to make changes first"}
-    ],
-    "multiSelect": false
-  }]
-)
-```
-
-If "Review draft first" → tell the user where the draft is and wait for them
-to say "go" or provide feedback. Apply any feedback, then re-present.
-
-If "Abort" → report "Beads creation aborted. Draft saved at
-plans/{{feature}}/04-beads/beads-draft.md for future use." and stop.
-
-If "Create beads" → proceed to execution.
-"""
-
-# ============================================================================
-# STEP 7: EXECUTE
+# STEP 6: EXECUTE
 # ============================================================================
 
 [[template]]
 id = "{target}.execute"
 title = "Create beads"
-needs = ["{target}.user-checkpoint"]
+needs = ["{target}.review-clarity"]
 description = """
 Execute bd commands to create the full beads hierarchy.
 
-## Execution Order
+## Execution Strategy
 
-**Order matters.** Create parents before children, then add dependencies.
+All parent-child relationships and blocker dependencies are set at creation
+time using `--parent` and `--deps` flags. This eliminates the need for
+separate `bd dep add` calls.
+
+**CRITICAL — Argument order for `bd dep add` (if needed as fallback):**
+`bd dep add <blocked-id> <blocker-id>` means the first issue depends on
+(is blocked by) the second. Get this backwards and all dependencies invert.
 
 ### 1. Create Feature Epic
 
@@ -715,30 +686,47 @@ Execute bd commands to create the full beads hierarchy.
 bd create "{{feature}}" -t epic -p P1 -d "[Description from draft]"
 ```
 
-Capture the returned bead ID — all sub-epics will reference it.
+Capture the returned bead ID → `EPIC_ID`
 
 ### 2. Create Phase Sub-Epics
 
 For each phase in order:
 ```bash
 bd create "Phase N: [Phase Name]" -t epic -p [P1/P2] \
+  --parent $EPIC_ID \
   -d "[Phase objective from draft]"
-bd dep add <feature-epic-id> <phase-sub-epic-id> --type parent-child
 ```
 
-Capture each sub-epic's bead ID — issues will reference them.
+Capture each sub-epic's bead ID → `PHASE_N_ID`
 
-### 3. Create Task Issues
+### 3. Create Task Issues (phase by phase)
 
-For each task issue in order:
+**Create tasks in phase order** (all Phase 1 before Phase 2, etc.).
+Since dependencies only point to same-phase or earlier-phase tasks,
+all blocker IDs are available at creation time.
+
+For tasks WITH NO blocker dependencies:
 ```bash
 bd create "[Task Title]" -t task -p [P1/P2] \
+  --parent $PHASE_N_ID \
   -d "[Full description from draft]" \
-  --acceptance "[Acceptance criteria from draft]"
-bd dep add <phase-sub-epic-id> <task-issue-id> --type parent-child
+  --acceptance "[Acceptance criteria]"
 ```
 
-Capture each issue's bead ID — dependencies will reference them.
+For tasks WITH blocker dependencies:
+```bash
+bd create "[Task Title]" -t task -p [P1/P2] \
+  --parent $PHASE_N_ID \
+  --deps "$BLOCKER1_ID,$BLOCKER2_ID" \
+  -d "[Full description from draft]" \
+  --acceptance "[Acceptance criteria]"
+```
+
+The `--deps` flag creates "blocks" dependencies by default. Each listed ID
+becomes a blocker of the newly created task (the new task is blocked by them).
+Multiple IDs are comma-separated.
+
+Capture each issue's bead ID → `TASK_X_Y_ID`
 
 **Important:** The acceptance criteria string uses `\n` for newlines between
 criteria items. Example:
@@ -746,23 +734,28 @@ criteria items. Example:
 --acceptance "- [ ] Criterion 1\n- [ ] Criterion 2\n- [ ] Criterion 3"
 ```
 
-### 4. Add Blocker Dependencies
-
-For each blocker dependency from the draft's Dependencies table:
-```bash
-bd dep add <blocker-bead-id> <blocked-bead-id>
-```
-
-### 5. Verify
+### 4. Verify
 
 ```bash
 bd dep cycles    # Must return empty — no circular dependencies
 bd ready         # Should show expected number of unblocked items
+bd show $EPIC_ID # Verify tree structure
 ```
 
 If `bd dep cycles` finds cycles, fix them by removing the dependency that
 creates the cycle (refer to the draft's Dependencies table for which one
-is least critical).
+is least critical). Use `bd dep remove <blocked-id> <blocker-id>` to fix.
+
+### 5. Set Up Integration Branch
+
+After all beads are created and verified, create an integration branch
+on the top-level epic:
+
+```bash
+gt mq integration create $EPIC_ID
+```
+
+This creates a git integration branch that child work will merge into.
 
 ## ID Tracking
 
@@ -771,16 +764,15 @@ Maintain a mapping as you create beads:
 ```
 Plan Reference → Bead ID
 ─────────────────────────
-Feature epic   → gt-XXXX
-Phase 1        → gt-YYYY
-Task 1.1       → gt-ZZZZ
-Task 1.2       → gt-AAAA
+Feature epic   → [id]
+Phase 1        → [id]
+Task 1.1       → [id]
+Task 1.2       → [id]
 ...
 ```
 
 This mapping is needed for:
-- Adding parent-child relationships
-- Adding blocker dependencies
+- Specifying `--parent` and `--deps` during creation
 - The final report
 
 ## Error Handling
@@ -793,7 +785,7 @@ If a `bd create` command fails:
 """
 
 # ============================================================================
-# STEP 8: REPORT & COMMIT
+# STEP 7: REPORT & COMMIT
 # ============================================================================
 
 [[template]]
@@ -867,6 +859,13 @@ Items with no blockers (can start immediately):
 
 ---
 
+## Integration Branch
+
+Feature epic: [id]
+Integration branch: [branch name from gt mq integration create output]
+
+---
+
 ## Coverage Verification
 
 | Plan Task | Bead ID | Status |
@@ -928,6 +927,7 @@ Report completion:
 ## Beads Created: {{feature}}
 
 **Feature epic:** [bead-id]
+**Integration branch:** [branch name]
 **Sub-epics:** N (phases)
 **Issues:** M (tasks)
 **Dependencies:** K blockers

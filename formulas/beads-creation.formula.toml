@@ -28,14 +28,15 @@ Uses 3 sequential review passes with fixes between each:
 2. Dependencies — blockers are real, parallelism is maximized
 3. Clarity — each issue is implementable by a fresh agent
 
-User checkpoint before executing bd commands.
+Creates beads using --parent and --deps flags at creation time for efficiency,
+then sets up an integration branch on the feature epic.
 
 Requires: plans/<feature>/03-plan/plan.md
 Output: beads hierarchy + plans/<feature>/04-beads/beads-{draft,report}.md
 """
 formula = "beads-creation"
 type = "workflow"
-version = 1
+version = 2
 
 [vars]
 [vars.feature]
