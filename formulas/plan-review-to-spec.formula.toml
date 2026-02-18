@@ -1,0 +1,49 @@
+# Plan Review to Spec Formula
+#
+# Verify the implementation plan fully addresses the spec and aligns with
+# the codebase analysis. Uses 3 parallel review agents checking bidirectional
+# coverage (spec→plan, plan→spec) plus codebase consistency (plan→context).
+#
+# Requires:
+#   - plans/<feature>/02-spec/spec.md (output of spec-workflow)
+#   - plans/<feature>/03-plan/plan.md (output of plan-writing)
+#   - plans/<feature>/03-plan/plan-context.md (optional, from plan-writing)
+#
+# Usage:
+#   gt sling plan-review-to-spec <crew> \
+#     --var feature="task-templates"
+
+description = """
+Verify the implementation plan fully addresses the spec.
+
+Runs 3 parallel review agents:
+1. Spec→Plan (forward): Does every spec requirement have plan coverage?
+2. Plan→Spec (reverse): Does every plan item trace back to a spec basis?
+3. Plan→Context: Is the plan consistent with the codebase analysis?
+
+Presents findings interactively, resolves issues, and commits updates.
+
+Requires: plans/<feature>/02-spec/spec.md and plans/<feature>/03-plan/plan.md
+Output: plans/<feature>/03-plan/plan-review.md
+"""
+formula = "plan-review-to-spec"
+type = "workflow"
+version = 1
+
+[vars]
+[vars.feature]
+description = "Feature name (used for input/output paths)"
+required = true
+
+# Placeholder step that will be expanded
+[[steps]]
+id = "review-plan"
+title = "Review plan against spec"
+description = "This step is expanded into the full plan review workflow."
+
+# Composition: expand the placeholder with the expansion formula
+[compose]
+
+[[compose.expand]]
+target = "review-plan"
+with = "plan-review-to-spec-expansion"

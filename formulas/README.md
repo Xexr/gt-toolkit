@@ -119,6 +119,35 @@ Converts a reviewed spec into a comprehensive implementation plan by running dee
 
 ---
 
+### Stage 6: Plan Review
+
+**Formula:** `plan-review-to-spec-expansion`
+
+Verifies the plan fully addresses the spec and aligns with codebase analysis using 3 parallel review agents checking different directions.
+
+**Steps:**
+1. Validate inputs — confirm spec, plan, and plan-context exist
+2. Parallel review — 3 agents: spec→plan (forward coverage), plan→spec (reverse traceability), plan→context (codebase alignment)
+3. Consolidate findings — cross-reference, deduplicate, severity-rank (P0/P1/P2)
+4. Present & resolve — interactive resolution of P0 and P1 findings (update plan, update spec, or accept)
+5. Commit review and any updates
+
+**Review directions:**
+
+| Agent | Direction | Catches |
+|-------|-----------|---------|
+| 1 | Spec → Plan | Dropped requirements, incomplete coverage |
+| 2 | Plan → Spec | Scope creep, gold-plating, unbacked decisions |
+| 3 | Plan → Context | Codebase contradictions, missed integration points, pattern non-compliance |
+
+**Outputs:** `plans/{feature}/03-plan/plan-review.md`, updated plan and/or spec if fixes applied
+
+**Vars:** `feature`
+
+**Prerequisite:** Run `plan-writing` first to produce `plans/{feature}/03-plan/plan.md`.
+
+---
+
 ## Standalone Wrappers
 
 These formulas are thin wrappers that let you run a single pipeline stage in isolation. They each define one placeholder step and use `[compose]` to expand the corresponding expansion formula. No additional logic beyond what the expansion provides.
@@ -130,6 +159,7 @@ These formulas are thin wrappers that let you run a single pipeline stage in iso
 | `spec-questions-interview` | `spec-questions-interview-expansion` | You have a spec and want a completeness review |
 | `spec-multimodal-review` | `spec-multimodal-review-expansion` | You have a spec and want multi-model review |
 | `plan-writing` | `plan-writing-expansion` | You have a reviewed spec and want an implementation plan |
+| `plan-review-to-spec` | `plan-review-to-spec-expansion` | You have a plan and want to verify it covers the spec |
 
 ---
 
@@ -156,9 +186,9 @@ gt sling spec-workflow <crew> \
 
 Approve the final gate with `bd gate resolve <gate-id>`.
 
-### Full Pipeline (spec + plan)
+### Full Pipeline (spec + plan + review)
 
-To run spec-workflow followed by plan-writing:
+To run the complete pipeline from spec through plan review:
 
 ```bash
 # Stage 1-4: Spec pipeline
@@ -170,4 +200,8 @@ gt sling spec-workflow <crew> \
 gt sling plan-writing <crew> \
   --var feature="command-palette" \
   --var brief="Add a keyboard-centric command palette for power users..."
+
+# Stage 6: Plan review (verify plan covers the spec)
+gt sling plan-review-to-spec <crew> \
+  --var feature="command-palette"
 ```

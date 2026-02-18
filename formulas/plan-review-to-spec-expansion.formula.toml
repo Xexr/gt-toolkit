@@ -1,0 +1,800 @@
+# Plan Review to Spec - EXPANSION VERSION
+#
+# This is the expansion-type version that can be composed into other workflows.
+# Verifies the implementation plan fully addresses the spec and aligns with
+# codebase analysis, using 3 parallel review agents with bidirectional coverage
+# checking plus a plan-to-context consistency check.
+#
+# Steps:
+#   1. Load inputs (validate spec, plan, plan-context exist)
+#   2. Parallel review (3 agents: spec→plan, plan→spec, plan→context)
+#   3. Consolidate findings
+#   4. Present & resolve (interactive)
+#   5. Commit updates
+
+description = """
+EXPANSION: Verify the implementation plan fully addresses the spec.
+
+This is an expansion-type formula for composition into other workflows.
+It transforms a single step into the full plan-review-to-spec process.
+
+Runs 3 parallel review agents:
+1. Spec→Plan (forward traceability): Does every spec requirement have plan coverage?
+2. Plan→Spec (reverse traceability): Does every plan item trace back to a spec basis?
+3. Plan→Context (codebase alignment): Is the plan consistent with what codebase analysis found?
+
+The bidirectional approach catches both dropped requirements (forward) and scope
+creep (reverse), while the context check catches codebase misalignment.
+"""
+formula = "plan-review-to-spec-expansion"
+type = "expansion"
+version = 1
+
+# Note: vars are inherited from the parent workflow that expands this
+# Required vars: feature
+
+# ============================================================================
+# STEP 1: LOAD INPUTS
+# ============================================================================
+
+[[template]]
+id = "{target}.load-inputs"
+title = "Validate inputs"
+description = """
+Validate that all required artifacts exist before dispatching reviewers.
+
+## Required Files
+
+1. **Spec:** `plans/{{feature}}/02-spec/spec.md`
+   - If missing: STOP. Report error: "No spec found. Run spec-workflow first."
+
+2. **Plan:** `plans/{{feature}}/03-plan/plan.md`
+   - If missing: STOP. Report error: "No plan found. Run plan-writing first."
+
+3. **Plan Context:** `plans/{{feature}}/03-plan/plan-context.md`
+   - If missing: WARN but continue. The plan→context review will be skipped.
+   - This file is produced by the plan-writing step's codebase analysis.
+
+## Validation
+
+Read the spec and plan to confirm they are substantive documents, not stubs:
+- Spec should have Overview, Design, and Out of Scope sections at minimum
+- Plan should have Architecture Decisions, Phased Delivery, and Spec Coverage Matrix
+
+## Check for Existing Coverage Matrix
+
+The plan-writing formula produces a Spec Coverage Matrix. Read it — this is
+the plan's own claim about coverage. The review will verify these claims.
+
+## Output
+
+Report:
+```
+## Inputs Validated
+
+**Spec:** plans/{{feature}}/02-spec/spec.md ✓
+**Plan:** plans/{{feature}}/03-plan/plan.md ✓
+**Plan Context:** plans/{{feature}}/03-plan/plan-context.md [✓ Found / ⚠ Not found — skipping context review]
+**Plan's Coverage Matrix:** [Found with N entries / Not found]
+
+Proceeding to parallel review...
+```
+"""
+
+# ============================================================================
+# STEP 2: PARALLEL REVIEW (3 agents)
+# ============================================================================
+
+[[template]]
+id = "{target}.parallel-review"
+title = "Dispatch 3 parallel review agents"
+needs = ["{target}.load-inputs"]
+description = """
+Dispatch THREE parallel review agents, each checking a different direction.
+All three run simultaneously as background tasks.
+
+**Pre-read both documents** before dispatching. Include the full text of both
+the spec and plan in each agent's prompt so they have complete context without
+needing to read files (reduces agent failure modes).
+
+## Agent 1: Spec → Plan (Forward Traceability)
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  run_in_background=true,
+  description="Review: spec→plan coverage",
+  prompt="You are reviewing an implementation plan for completeness against its source spec.
+
+## Your Role: Forward Traceability
+
+Walk through EVERY section of the spec and verify it has corresponding coverage
+in the plan. You are answering: 'Did the plan drop any requirements?'
+
+## Inputs
+
+Read these files:
+- `plans/{{feature}}/02-spec/spec.md` — the source spec
+- `plans/{{feature}}/03-plan/plan.md` — the implementation plan
+
+## Process
+
+### 1. Extract Spec Requirements
+
+Walk the spec section by section. For each section, extract:
+- Explicit requirements (things the spec says MUST happen)
+- Implicit requirements (things implied by the design that must be true)
+- Constraints (things the spec says must NOT happen or limits)
+- Edge cases (scenarios the spec calls out)
+
+### 2. Trace Each Requirement to the Plan
+
+For each requirement, find where in the plan it is addressed:
+- Which phase?
+- Which task(s)?
+- Is the coverage complete or partial?
+- Does the plan's approach actually satisfy the requirement?
+
+### 3. Check the Plan's Own Coverage Matrix
+
+If the plan has a 'Spec Coverage Matrix' section, verify its claims:
+- Does it list ALL spec sections?
+- Are the plan section references accurate?
+- Are there spec sections missing from the matrix?
+
+### 4. Assess Cross-Cutting Concerns
+
+Check that the plan addresses cross-cutting spec requirements:
+- Error handling approach matches spec expectations
+- Testing strategy covers spec scenarios
+- Performance requirements have plan coverage
+- Security requirements are addressed
+
+## Output
+
+Write to: `plans/{{feature}}/03-plan/review-forward.tmp`
+
+Use this format:
+```markdown
+# Forward Traceability: Spec → Plan
+
+## Coverage Summary
+- **Spec sections reviewed:** N
+- **Fully covered:** N
+- **Partially covered:** N
+- **Not covered:** N
+
+## Section-by-Section Analysis
+
+### [Spec Section Name]
+- **Status:** Fully Covered / Partially Covered / Not Covered
+- **Plan coverage:** Phase X, Task Y.Z
+- **Gap (if any):** [What's missing]
+- **Severity:** P0 (requirement dropped) / P1 (partial coverage) / P2 (minor gap)
+
+[Repeat for every spec section]
+
+## Coverage Matrix Verification
+- **Matrix present:** Yes / No
+- **Matrix accurate:** [Assessment]
+- **Missing from matrix:** [List any spec sections not in the matrix]
+
+## Cross-Cutting Gaps
+- [Any cross-cutting requirements not adequately addressed]
+
+## Summary
+- P0 (dropped requirements): N
+- P1 (partial coverage): N
+- P2 (minor gaps): N
+```
+
+Use the Write tool. Do NOT return output to conversation — write to file only."
+)
+```
+
+## Agent 2: Plan → Spec (Reverse Traceability)
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  run_in_background=true,
+  description="Review: plan→spec traceability",
+  prompt="You are reviewing an implementation plan to verify every item traces back to the spec.
+
+## Your Role: Reverse Traceability
+
+Walk through EVERY task in the plan and verify it has a basis in the spec.
+You are answering: 'Did the plan invent work that isn't in the spec?'
+
+## Inputs
+
+Read these files:
+- `plans/{{feature}}/02-spec/spec.md` — the source spec
+- `plans/{{feature}}/03-plan/plan.md` — the implementation plan
+
+## Process
+
+### 1. Extract Plan Items
+
+Walk the plan phase by phase, task by task. For each task, note:
+- Task ID and title
+- What it proposes to build or change
+- Files it plans to create or modify
+- Its stated acceptance criteria
+
+### 2. Trace Each Task Back to the Spec
+
+For each plan task, answer:
+- Which spec requirement justifies this work?
+- Is the task doing exactly what the spec asks, or has it interpreted/expanded?
+- Is the scope of the task proportionate to the spec requirement?
+
+### 3. Classify Each Task
+
+- **Spec-backed:** Direct implementation of a spec requirement
+- **Spec-implied:** Not explicitly in the spec but necessary for a spec requirement
+  (e.g., migration scripts, shared types). These are FINE but should be flagged.
+- **Infrastructure:** Build/test/CI setup needed to support the feature. Also fine.
+- **Scope creep:** Work that goes beyond what the spec asks for. These are problems.
+- **Gold-plating:** Extra features, configurability, or abstraction not in the spec.
+
+### 4. Check Architecture Decisions
+
+For each architecture decision in the plan:
+- Does the spec constrain this decision?
+- If so, does the plan respect the constraint?
+- If the spec is silent, is the plan's choice reasonable?
+
+### 5. Check for Over-Engineering
+
+Look for signs of:
+- Abstractions beyond what the spec requires
+- Configurability the spec doesn't ask for
+- Future-proofing that isn't justified by current requirements
+- Extra features snuck in under the guise of 'infrastructure'
+
+## Output
+
+Write to: `plans/{{feature}}/03-plan/review-reverse.tmp`
+
+Use this format:
+```markdown
+# Reverse Traceability: Plan → Spec
+
+## Traceability Summary
+- **Plan tasks reviewed:** N
+- **Spec-backed:** N
+- **Spec-implied (acceptable):** N
+- **Infrastructure (acceptable):** N
+- **Scope creep (problem):** N
+- **Gold-plating (problem):** N
+
+## Phase-by-Phase Analysis
+
+### Phase X: [Phase Name]
+
+**Task X.1: [Task Title]**
+- **Classification:** Spec-backed / Spec-implied / Infrastructure / Scope creep / Gold-plating
+- **Spec basis:** [Which spec section, or 'implied by...' or 'NONE']
+- **Issue (if any):** [What's wrong]
+- **Severity:** P0 (unbacked scope) / P1 (gold-plating) / P2 (minor over-engineering)
+
+[Repeat for every task in every phase]
+
+## Architecture Decision Review
+
+| Decision | Spec Constraint | Plan Choice | Aligned? |
+|----------|----------------|-------------|----------|
+| [Decision] | [Constraint or 'unconstrained'] | [Choice] | Yes / No / Concern |
+
+## Over-Engineering Concerns
+- [Any systemic over-engineering patterns found]
+
+## Summary
+- P0 (unbacked scope): N
+- P1 (gold-plating): N
+- P2 (minor over-engineering): N
+```
+
+Use the Write tool. Do NOT return output to conversation — write to file only."
+)
+```
+
+## Agent 3: Plan → Context (Codebase Alignment)
+
+**Skip this agent if plan-context.md was not found in the load-inputs step.**
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  run_in_background=true,
+  description="Review: plan→context alignment",
+  prompt="You are reviewing an implementation plan against the codebase analysis that informed it.
+
+## Your Role: Codebase Alignment
+
+Verify the plan is consistent with what the codebase exploration actually found.
+You are answering: 'Did the plan accurately reflect the codebase reality?'
+
+## Inputs
+
+Read these files:
+- `plans/{{feature}}/03-plan/plan.md` — the implementation plan
+- `plans/{{feature}}/03-plan/plan-context.md` — consolidated codebase analysis
+- `plans/{{feature}}/02-spec/spec.md` — the spec (for context on what's being built)
+
+## Process
+
+### 1. Architecture Consistency
+
+Compare the plan's architecture decisions against the context's findings:
+- Does the plan's proposed module structure match the context's architecture overview?
+- Does the plan reference the right files and directories?
+- Does the plan follow the patterns and conventions the context identified?
+
+### 2. Integration Surface Accuracy
+
+For each file the plan says it will modify or create:
+- Did the context identify this file as relevant?
+- Does the plan's description of what to change match the context's analysis?
+- Are the interfaces, types, and function signatures the plan references accurate?
+- Did the context identify integration points the plan missed?
+
+### 3. Pattern Compliance
+
+Check the plan against the context's patterns and conventions section:
+- Does the plan follow the naming conventions the context documented?
+- Does the plan use the error handling patterns the context identified?
+- Does the plan's testing approach match the context's testing patterns?
+- Is the plan consistent with the precedent feature the context found?
+
+### 4. Missed Integration Points
+
+Check if the context identified things the plan didn't address:
+- Extension points or registries that need entries
+- Configuration files that need updates
+- Middleware chains or event hooks to tap into
+- Data migrations or schema changes
+
+### 5. Contradictions
+
+Look for cases where the plan states something about the codebase that
+contradicts what the context analysis found. These are high-severity
+because they indicate the plan was written with incorrect assumptions.
+
+## Output
+
+Write to: `plans/{{feature}}/03-plan/review-context.tmp`
+
+Use this format:
+```markdown
+# Codebase Alignment: Plan → Context
+
+## Alignment Summary
+- **Architecture decisions checked:** N
+- **Aligned with context:** N
+- **Contradicts context:** N
+- **Not verifiable (context silent):** N
+
+## Architecture Consistency
+
+| Plan Decision | Context Finding | Aligned? | Issue |
+|--------------|-----------------|----------|-------|
+| [Decision] | [What context says] | Yes / No | [If no, what's wrong] |
+
+## Integration Surface Accuracy
+
+### Files Plan Will Modify
+| File | In Context? | Plan Description Matches? | Issue |
+|------|-------------|--------------------------|-------|
+| [path] | Yes / No | Yes / Partial / No | [Issue if any] |
+
+### Files Plan Will Create
+| File | Placement Consistent? | Issue |
+|------|----------------------|-------|
+| [path] | Yes / No | [Issue if any] |
+
+## Pattern Compliance
+
+| Pattern | Context Documents | Plan Follows? | Issue |
+|---------|------------------|--------------|-------|
+| [Naming] | [Convention] | Yes / No | [Issue] |
+| [Error handling] | [Pattern] | Yes / No | [Issue] |
+| [Testing] | [Approach] | Yes / No | [Issue] |
+
+## Missed Integration Points
+- [Things the context identified that the plan doesn't address]
+
+## Contradictions
+- **[SEVERITY] [Topic]:** Plan says [X], context says [Y]
+
+## Summary
+- P0 (contradictions): N
+- P1 (missed integration points): N
+- P2 (pattern non-compliance): N
+```
+
+Use the Write tool. Do NOT return output to conversation — write to file only."
+)
+```
+
+## Wait for All Agents
+
+Use TaskOutput with `block=true, timeout=600000` for each agent.
+Call all TaskOutput calls in a SINGLE message for parallel collection.
+
+If any agent fails, report the failure and continue with available results.
+"""
+
+# ============================================================================
+# STEP 3: CONSOLIDATE FINDINGS
+# ============================================================================
+
+[[template]]
+id = "{target}.consolidate"
+title = "Consolidate review findings"
+needs = ["{target}.parallel-review"]
+description = """
+Merge the three review results into a single consolidated report.
+
+## Input Files
+
+Read all available review files:
+- `plans/{{feature}}/03-plan/review-forward.tmp` — spec→plan coverage (REQUIRED)
+- `plans/{{feature}}/03-plan/review-reverse.tmp` — plan→spec traceability (REQUIRED)
+- `plans/{{feature}}/03-plan/review-context.tmp` — plan→context alignment (if exists)
+
+## Consolidation Process
+
+### 1. Cross-Reference Findings
+
+Look for the same issue found from multiple angles:
+- A dropped requirement (forward) that also shows as a missing integration point (context)
+  → Higher confidence, escalate severity
+- Scope creep (reverse) on something the context doesn't support
+  → Stronger evidence for removal
+- Pattern non-compliance (context) on a task that's already partially covered (forward)
+  → The fix addresses both issues
+
+Issues found by multiple reviewers get a **[CORROBORATED]** tag and elevated priority.
+
+### 2. Deduplicate
+
+Where multiple reviewers found the same underlying issue:
+- Keep the most detailed description
+- Note which reviewers independently identified it
+- Use the highest severity from any reviewer
+
+### 3. Categorize All Findings
+
+Group into these categories:
+
+**Coverage Gaps** (from forward review)
+- Spec requirements with no plan coverage
+- Spec requirements with only partial plan coverage
+
+**Scope Creep** (from reverse review)
+- Plan tasks with no spec basis
+- Gold-plating or over-engineering
+
+**Codebase Misalignment** (from context review)
+- Plan contradicts codebase analysis
+- Missed integration points
+- Pattern non-compliance
+
+**Consistency Issues** (cross-review)
+- Internal contradictions between plan sections
+- Coverage matrix inaccuracies
+
+### 4. Severity Assignment
+
+- **P0 — Must Fix:** Dropped spec requirements, codebase contradictions, significant unbacked scope
+- **P1 — Should Fix:** Partial coverage, missed integration points, gold-plating
+- **P2 — Consider:** Minor pattern non-compliance, minor over-engineering, style issues
+
+### 5. Actionability
+
+For each finding, determine the action:
+- **Update plan:** The plan needs to add/remove/change something
+- **Update spec:** The spec was ambiguous and the plan's interpretation is reasonable — clarify the spec
+- **Accept as-is:** Finding is valid but acceptable (document the decision)
+
+## Output
+
+Write consolidated report to: `plans/{{feature}}/03-plan/plan-review.md`
+
+Use this format:
+```markdown
+# Plan Review: {{feature}}
+
+**Generated:** [date]
+**Reviewers:** Forward (spec→plan), Reverse (plan→spec), Context (plan→codebase)
+
+---
+
+## Summary
+
+| Category | P0 | P1 | P2 | Total |
+|----------|----|----|----|----|
+| Coverage Gaps | N | N | N | N |
+| Scope Creep | N | N | N | N |
+| Codebase Misalignment | N | N | N | N |
+| Consistency Issues | N | N | N | N |
+| **Total** | **N** | **N** | **N** | **N** |
+
+---
+
+## P0 Findings (Must Fix)
+
+### 1. [Finding Title] [CORROBORATED]
+- **Category:** Coverage Gap / Scope Creep / Codebase Misalignment
+- **Found by:** Forward + Context (corroborated)
+- **What:** [Description]
+- **Evidence:** [What the reviewers found]
+- **Action:** Update plan / Update spec / Accept as-is
+- **Recommendation:** [Specific suggested fix]
+
+---
+
+## P1 Findings (Should Fix)
+
+### N. [Finding Title]
+- **Category:** [Category]
+- **Found by:** [Which reviewer(s)]
+- **What:** [Description]
+- **Action:** [Recommended action]
+- **Recommendation:** [Specific fix]
+
+---
+
+## P2 Findings (Consider)
+
+### N. [Finding Title]
+- **Category:** [Category]
+- **Found by:** [Which reviewer(s)]
+- **What:** [Description]
+- **Recommendation:** [Suggestion]
+
+---
+
+## Coverage Summary
+
+**Forward (Spec→Plan):**
+- Fully covered: N sections
+- Partially covered: N sections
+- Not covered: N sections
+
+**Reverse (Plan→Spec):**
+- Spec-backed: N tasks
+- Spec-implied: N tasks
+- Infrastructure: N tasks
+- Scope creep: N tasks
+
+**Context Alignment:**
+- Aligned: N decisions
+- Contradicts: N decisions
+- Unverifiable: N decisions
+```
+
+After writing the report, delete the .tmp files:
+```bash
+rm -f plans/{{feature}}/03-plan/review-forward.tmp
+rm -f plans/{{feature}}/03-plan/review-reverse.tmp
+rm -f plans/{{feature}}/03-plan/review-context.tmp
+```
+"""
+
+# ============================================================================
+# STEP 4: PRESENT & RESOLVE
+# ============================================================================
+
+[[template]]
+id = "{target}.present-resolve"
+title = "Present findings and resolve"
+needs = ["{target}.consolidate"]
+description = """
+Present the consolidated findings to the user and interactively resolve issues.
+
+## Present Summary
+
+Show a clear summary so the user can make informed decisions:
+
+```
+## Plan Review Complete: {{feature}}
+
+**Reviewers:** Forward (spec→plan) ✓, Reverse (plan→spec) ✓, Context (plan→codebase) [✓/⚠ skipped]
+
+### Findings
+
+| Category | P0 | P1 | P2 |
+|----------|----|----|-----|
+| Coverage Gaps | N | N | N |
+| Scope Creep | N | N | N |
+| Codebase Misalignment | N | N | N |
+| Consistency Issues | N | N | N |
+
+### P0 Findings (Must Fix)
+- [One-line summary of each P0 finding]
+
+### P1 Findings (Should Fix)
+- [One-line summary of each P1 finding]
+
+### P2: N findings (see full report)
+
+Full report: plans/{{feature}}/03-plan/plan-review.md
+```
+
+## If No P0 or P1 Findings
+
+Congratulations path:
+
+> "Plan review clean — no significant issues found. [N] P2 items noted in the report.
+> Say **'go'** to commit the review and proceed, or **'details'** to see P2 items."
+
+If user says "go" → proceed to commit.
+If user says "details" → show P2 items, then ask "go" or "fix".
+
+## If P0 or P1 Findings Exist
+
+### Resolve P0 Findings First
+
+For each P0 finding, present it with the recommended action:
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "[Finding description]. How should this be resolved?",
+    "header": "P0 Fix",
+    "options": [
+      {"label": "[Recommended action] (Recommended)", "description": "[What this means]"},
+      {"label": "Update plan", "description": "Modify the plan to address this"},
+      {"label": "Update spec", "description": "The spec was ambiguous — clarify it"},
+      {"label": "Accept as-is", "description": "Acknowledge the gap but don't change anything"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+### Then P1 Findings
+
+Present P1 findings as a batch:
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "Which P1 findings should we address?",
+    "header": "P1 Fixes",
+    "options": [
+      {"label": "All P1 findings (Recommended)", "description": "Address all [N] P1 items"},
+      {"label": "None — accept as-is", "description": "Document but don't change"},
+      {"label": "Select individually", "description": "Choose which P1s to fix"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+If "Select individually" → show multiselect of P1 items.
+
+### P2 Findings
+
+Do NOT prompt for P2 findings. Document them in the review but don't require action.
+
+## Apply Fixes
+
+For each finding the user chose to fix:
+
+**If "Update plan":**
+- Read `plans/{{feature}}/03-plan/plan.md`
+- Apply the recommended fix from the review
+- Add/modify/remove tasks, phases, or coverage matrix entries as needed
+- Verify the change addresses the finding
+
+**If "Update spec":**
+- Read `plans/{{feature}}/02-spec/spec.md`
+- Clarify the ambiguous section
+- Add a note that this was clarified during plan review
+
+**If "Accept as-is":**
+- Note the decision and rationale in the review document
+
+## After All Fixes Applied
+
+Re-read the plan and confirm:
+1. All selected fixes are applied
+2. The plan is internally consistent after changes
+3. The spec coverage matrix is updated if coverage changed
+
+Report:
+```
+## Fixes Applied
+
+**P0 resolved:** N of N
+**P1 resolved:** N of N
+**P2 documented:** N
+
+**Plan updated:** Yes / No
+**Spec updated:** Yes / No
+
+Changes summary:
+- [List key changes made]
+```
+"""
+
+# ============================================================================
+# STEP 5: COMMIT
+# ============================================================================
+
+[[template]]
+id = "{target}.commit"
+title = "Commit review and updates"
+needs = ["{target}.present-resolve"]
+description = """
+Commit the review report and any plan/spec updates.
+
+## Files to Commit
+
+- `plans/{{feature}}/03-plan/plan-review.md` — the review report (always)
+- `plans/{{feature}}/03-plan/plan.md` — if updated with fixes
+- `plans/{{feature}}/02-spec/spec.md` — if clarified during review
+
+## Commit Process
+
+1. Stage files:
+   ```bash
+   git add plans/{{feature}}/03-plan/plan-review.md
+   git add plans/{{feature}}/03-plan/plan.md       # if modified
+   git add plans/{{feature}}/02-spec/spec.md        # if modified
+   ```
+
+2. Check for any other untracked files in plans/{{feature}}/ that should be included:
+   ```bash
+   git status plans/{{feature}}/
+   ```
+
+3. Create commit:
+   ```bash
+   git commit -m "feat(plans): plan review for {{feature}}
+
+   3-direction review (spec→plan, plan→spec, plan→context).
+
+   Findings: [N] P0, [N] P1, [N] P2
+   Resolved: [N] P0, [N] P1
+   Plan updated: [Yes/No]
+   Spec clarified: [Yes/No]
+
+   Co-Authored-By: Claude <agent>"
+   ```
+
+4. Push to remote:
+   ```bash
+   git push
+   ```
+
+## Output
+
+Report completion:
+```
+## Plan Review Committed
+
+**Files committed:**
+- plans/{{feature}}/03-plan/plan-review.md
+- plans/{{feature}}/03-plan/plan.md [if updated]
+- plans/{{feature}}/02-spec/spec.md [if updated]
+
+**Review summary:**
+- P0: [N] found, [N] resolved
+- P1: [N] found, [N] resolved
+- P2: [N] documented
+- Plan changes: [summary]
+
+**Commit:** [short hash]
+**Pushed to:** origin/[branch]
+
+Ready for next pipeline step (design-to-beads).
+```
+"""
