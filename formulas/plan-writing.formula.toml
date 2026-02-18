@@ -1,0 +1,49 @@
+# Plan Writing Formula
+#
+# Convert a reviewed spec into a comprehensive implementation plan.
+# Explores the codebase in depth (3 parallel agents), then writes a plan
+# with phased delivery, file-level mapping, and acceptance criteria.
+#
+# Requires a spec at plans/<feature>/spec.md (output of spec-workflow).
+#
+# Usage:
+#   gt sling plan-writing dypt/crew/neo \
+#     --var feature="task-templates" \
+#     --var brief="Add a Task Templates feature that allows users to..."
+
+description = """
+Convert a reviewed spec into a comprehensive implementation plan.
+
+Runs deep codebase analysis (3 parallel Sonnet agents exploring architecture,
+integration surface, and patterns), consolidates findings, then writes an
+implementation plan with phased delivery, file-level mapping, and spec
+coverage verification.
+
+Requires: plans/<feature>/spec.md (run spec-workflow first).
+Output: plans/<feature>/plan/plan.md
+"""
+formula = "plan-writing"
+type = "workflow"
+version = 1
+
+[vars]
+[vars.feature]
+description = "Feature name (used for input/output paths)"
+required = true
+
+[vars.brief]
+description = "Feature brief or description"
+required = true
+
+# Placeholder step that will be expanded
+[[steps]]
+id = "write-plan"
+title = "Write implementation plan"
+description = "This step is expanded into the full plan-writing workflow."
+
+# Composition: expand the placeholder with the expansion formula
+[compose]
+
+[[compose.expand]]
+target = "write-plan"
+with = "plan-writing-expansion"

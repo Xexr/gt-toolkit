@@ -1,6 +1,6 @@
 # Formulas
 
-Design spec formulas for the `gt sling` pipeline. These take a feature from initial idea through to a fully reviewed, validated design specification.
+Design and planning formulas for the `gt sling` pipeline. These take a feature from initial idea through to a fully reviewed design spec, then into a detailed implementation plan.
 
 ## Architecture
 
@@ -10,7 +10,9 @@ The formulas follow an **expansion/wrapper pattern**:
 
 - **Wrapper formulas** are thin standalone entrypoints that expand a single expansion formula into a runnable workflow. They define a placeholder `[[steps]]` block and use `[compose] [[compose.expand]]` to inline the expansion. Use these when you want to run one stage of the pipeline in isolation.
 
-- **spec-workflow** is the orchestrator that composes all four expansions into a single end-to-end pipeline with a human gate at the end.
+- **spec-workflow** is the orchestrator that composes all four spec expansions into a single end-to-end pipeline with a human gate at the end.
+
+- **plan-writing** converts a reviewed spec into an implementation plan via deep codebase analysis (3 parallel agents) and structured plan generation.
 
 ## The Pipeline
 
@@ -94,9 +96,32 @@ Final quality gate using 3 models in parallel across 12 review categories.
 
 ---
 
+## Plan Writing
+
+### Stage 5: Implementation Plan
+
+**Formula:** `plan-writing-expansion`
+
+Converts a reviewed spec into a comprehensive implementation plan by running deep codebase analysis, then writing a phased delivery plan with file-level mapping and acceptance criteria.
+
+**Steps:**
+1. Validate inputs — confirm spec exists, check for prior codebase context
+2. Deep codebase analysis — 3 parallel Sonnet agents exploring architecture, integration surface, and patterns/conventions
+3. Consolidate analysis into `plan-context.md`
+4. Write implementation plan with phased delivery, spec coverage matrix, and technical risks
+5. Commit plan and artifacts
+
+**Outputs:** `plans/{feature}/plan/plan.md`, `plans/{feature}/plan/plan-context.md`
+
+**Vars:** `feature`, `brief`
+
+**Prerequisite:** Run `spec-workflow` (or at least `spec-brainstorm`) first to produce `plans/{feature}/spec.md`.
+
+---
+
 ## Standalone Wrappers
 
-These four formulas are thin wrappers that let you run a single pipeline stage in isolation. They each define one placeholder step and use `[compose]` to expand the corresponding expansion formula. No additional logic beyond what the expansion provides.
+These formulas are thin wrappers that let you run a single pipeline stage in isolation. They each define one placeholder step and use `[compose]` to expand the corresponding expansion formula. No additional logic beyond what the expansion provides.
 
 | Wrapper | Expands | Use when... |
 |---------|---------|-------------|
@@ -104,6 +129,7 @@ These four formulas are thin wrappers that let you run a single pipeline stage i
 | `spec-brainstorm` | `spec-brainstorm-expansion` | You want to brainstorm a spec (with or without prior scope questions) |
 | `spec-questions-interview` | `spec-questions-interview-expansion` | You have a spec and want a completeness review |
 | `spec-multimodal-review` | `spec-multimodal-review-expansion` | You have a spec and want multi-model review |
+| `plan-writing` | `plan-writing-expansion` | You have a reviewed spec and want an implementation plan |
 
 ---
 
@@ -129,3 +155,19 @@ gt sling spec-workflow <crew> \
 **Vars:** `feature`, `brief`
 
 Approve the final gate with `bd gate resolve <gate-id>`.
+
+### Full Pipeline (spec + plan)
+
+To run spec-workflow followed by plan-writing:
+
+```bash
+# Stage 1-4: Spec pipeline
+gt sling spec-workflow <crew> \
+  --var feature="command-palette" \
+  --var brief="Add a keyboard-centric command palette for power users..."
+
+# Stage 5: Plan (after spec is reviewed and approved)
+gt sling plan-writing <crew> \
+  --var feature="command-palette" \
+  --var brief="Add a keyboard-centric command palette for power users..."
+```

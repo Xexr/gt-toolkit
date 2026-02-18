@@ -6,7 +6,7 @@ A collection of formulas, configurations, workflow documents, and other useful r
 
 | Directory | Contents |
 |-----------|----------|
-| `formulas/` | `.formula.toml` files for use with `bd formula` |
+| `formulas/` | `.formula.toml` files — spec pipeline and plan writing formulas for `gt sling` |
 | `configs/` | Example configuration files and templates |
 | `docs/` | Workflow guides, tips, and reference material |
 

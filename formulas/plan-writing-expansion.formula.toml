@@ -1,0 +1,612 @@
+# Plan Writing - EXPANSION VERSION
+#
+# This is the expansion-type version that can be composed into other workflows.
+# Converts a reviewed spec into a comprehensive implementation plan.
+#
+# Steps:
+#   1. Load inputs (validate spec exists, setup directories)
+#   2. Deep codebase analysis (3 parallel exploration agents)
+#   3. Consolidate analysis into plan-context.md
+#   4. Write implementation plan (plan.md)
+#   5. Commit plan and artifacts
+
+description = """
+EXPANSION: Convert a reviewed spec into a comprehensive implementation plan.
+
+This is an expansion-type formula for composition into other workflows.
+It transforms a single step into the full spec-to-plan process.
+
+Takes the spec produced by spec-workflow and produces an implementation plan
+that maps spec requirements onto the actual codebase — architecture decisions,
+phased delivery, file-level mapping, and conventions to follow.
+
+The plan is structured to make the subsequent design-to-beads step mechanical:
+phases become epics, tasks become issues, prerequisites become dependencies.
+"""
+formula = "plan-writing-expansion"
+type = "expansion"
+version = 1
+
+# Note: vars are inherited from the parent workflow that expands this
+# Required vars: feature, brief
+
+# ============================================================================
+# STEP 1: LOAD INPUTS
+# ============================================================================
+
+[[template]]
+id = "{target}.load-inputs"
+title = "Validate inputs and setup"
+description = """
+Validate that the spec exists and set up output directories.
+
+## Validation
+
+1. Check that `plans/{{feature}}/spec.md` exists
+   - If missing: STOP. Report error: "No spec found at plans/{{feature}}/spec.md.
+     Run the spec-workflow first."
+
+2. Read the spec and confirm it has the expected sections:
+   - Overview
+   - Design (Architecture, Components, Data Model, User Flows, etc.)
+   - Out of Scope
+   - The spec should look complete — if it's just a stub or placeholder, STOP.
+
+3. Check for existing codebase context from the spec phase:
+   - `plans/{{feature}}/scope-questions/context.md` — reuse if present
+   - Note whether this exists for the deep-analysis step
+
+## Setup
+
+```bash
+mkdir -p plans/{{feature}}/plan
+```
+
+## Output
+
+Report:
+```
+## Inputs Validated
+
+**Spec:** plans/{{feature}}/spec.md ✓
+**Existing context:** [Found / Not found]
+**Spec sections:** [list key sections found]
+
+Proceeding to codebase analysis...
+```
+"""
+
+# ============================================================================
+# STEP 2: DEEP CODEBASE ANALYSIS (3 parallel agents)
+# ============================================================================
+
+[[template]]
+id = "{target}.deep-analysis"
+title = "Deep codebase analysis"
+needs = ["{target}.load-inputs"]
+description = """
+Dispatch THREE parallel exploration agents to build deep codebase understanding.
+
+Each agent reads the full spec themselves to know what the feature needs, then
+explores the codebase from their specific angle. All three run in parallel.
+
+**Do NOT pre-summarize the spec.** Each agent reads the full spec and extracts
+what's relevant to their focus area. This avoids lossy compression — the
+integration surface agent cares about different spec details than the
+architecture agent.
+
+## Dispatch All Three in Parallel
+
+### Agent 1: Architecture & Module Boundaries
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  run_in_background=true,
+  description="Explore: architecture & modules",
+  prompt="You are analyzing a codebase to support implementation planning.
+
+## Step 1: Read Inputs
+First, read these files to understand what we're building:
+- `plans/{{feature}}/spec.md` — the full feature spec (REQUIRED)
+- `plans/{{feature}}/scope-questions/context.md` — prior codebase context (if it exists)
+
+## Your Focus: Architecture & Module Boundaries
+
+Explore the codebase and produce a thorough analysis of:
+
+### 1. Project Structure
+- Top-level directory layout and what each directory contains
+- Package/module organization and boundaries
+- Build system, entry points, configuration files
+- How the project is decomposed and what principles guide that decomposition
+
+### 2. Dependency Graph
+- How do modules depend on each other?
+- What are the core packages everything depends on?
+- Are there clear layers (data, service, API, UI)?
+- What dependency injection or wiring patterns are used?
+
+### 3. Where This Feature Fits
+- Based on the spec, which part of the architecture does this feature belong in?
+- Does it extend an existing module or need a new one?
+- What architectural boundaries must it respect?
+- Are there any architectural constraints that would shape the implementation?
+
+### 4. Build & Deploy
+- How is the project built? (Makefile, npm scripts, etc.)
+- How are tests run?
+- Any CI/CD configuration to be aware of?
+- What would need to change in build config for this feature?
+
+**Be specific — cite file paths and directory names, not generalities.**
+
+## OUTPUT
+Write your complete analysis to: plans/{{feature}}/plan/architecture.tmp
+Use the Write tool. Do NOT return output to conversation — write to file only."
+)
+```
+
+### Agent 2: Integration Surface
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  run_in_background=true,
+  description="Explore: integration surface",
+  prompt="You are analyzing a codebase to support implementation planning.
+
+## Step 1: Read Inputs
+First, read these files to understand what we're building:
+- `plans/{{feature}}/spec.md` — the full feature spec (REQUIRED)
+- `plans/{{feature}}/scope-questions/context.md` — prior codebase context (if it exists)
+
+## Your Focus: Integration Surface
+
+For each requirement in the spec, trace what existing code it would touch.
+This is the most spec-dependent analysis — you need to map spec requirements
+to concrete code paths.
+
+### 1. Files That Will Need Modification
+For each area of the spec, identify:
+- Which existing files will need changes
+- WHAT in those files needs to change (specific functions, types, routes)
+- WHY (which spec requirement drives the change)
+
+Read the actual files. Don't guess from filenames.
+
+### 2. Interfaces & Types
+- What existing interfaces/types will the feature consume?
+- What new interfaces/types will it need to expose?
+- Read the actual type definitions — note field names, method signatures
+- Are there shared types that multiple parts of the feature will use?
+
+### 3. Extension Points
+- Does the codebase have plugin systems, middleware chains, event hooks,
+  or other extension mechanisms the feature should use?
+- How do similar features register themselves?
+- Are there registries, factories, or configuration files that need entries?
+
+### 4. Data Layer
+- What existing data models/schemas are relevant?
+- Will new tables/collections/fields be needed?
+- How are migrations handled in this project?
+- What ORM/query patterns are used?
+
+**Be specific — quote actual function signatures, type definitions, and file paths.**
+
+## OUTPUT
+Write your complete analysis to: plans/{{feature}}/plan/integration-surface.tmp
+Use the Write tool. Do NOT return output to conversation — write to file only."
+)
+```
+
+### Agent 3: Patterns & Conventions
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  run_in_background=true,
+  description="Explore: patterns & conventions",
+  prompt="You are analyzing a codebase to support implementation planning.
+
+## Step 1: Read Inputs
+First, read these files to understand what we're building:
+- `plans/{{feature}}/spec.md` — the full feature spec (REQUIRED)
+- `plans/{{feature}}/scope-questions/context.md` — prior codebase context (if it exists)
+
+## Your Focus: Patterns & Conventions
+
+Understand HOW things are built in this codebase so the implementation plan
+can follow established patterns rather than inventing new ones.
+
+### 1. Precedent: Similar Features
+- Find the closest existing feature to what the spec describes
+- How is it structured? What files does it span?
+- What patterns does it follow?
+- This is the best template for how to build the new feature
+
+### 2. Coding Patterns
+- How are components/modules typically structured?
+- What naming conventions are used? (files, functions, types, variables)
+- How is configuration handled?
+- How are constants and shared values managed?
+- What logging/observability patterns exist?
+
+### 3. Error Handling
+- How are errors created, propagated, and handled?
+- Are there custom error types?
+- How do user-facing errors differ from internal errors?
+- What error recovery patterns exist?
+
+### 4. Testing Approach
+- What test framework(s) are used?
+- How are tests organized? (co-located, separate directory, both?)
+- What testing patterns are common? (table-driven, mocks, fixtures, etc.)
+- What level of test coverage is expected?
+- How are integration vs unit tests distinguished?
+- Are there test helpers or utilities to be aware of?
+
+### 5. Code Review Standards
+- Check CLAUDE.md, CONTRIBUTING.md, or similar for documented standards
+- What linting/formatting rules are enforced?
+- Any documented anti-patterns to avoid?
+
+**Be specific — show examples from the actual codebase, with file paths.**
+
+## OUTPUT
+Write your complete analysis to: plans/{{feature}}/plan/patterns-conventions.tmp
+Use the Write tool. Do NOT return output to conversation — write to file only."
+)
+```
+
+## Wait for All Three
+
+Use TaskOutput with `block=true, timeout=600000` for each agent.
+Call all three TaskOutput calls in a SINGLE message for parallel collection.
+
+If any agent fails, report the failure and continue with available results.
+"""
+
+# ============================================================================
+# STEP 3: CONSOLIDATE ANALYSIS
+# ============================================================================
+
+[[template]]
+id = "{target}.consolidate-analysis"
+title = "Consolidate codebase analysis"
+needs = ["{target}.deep-analysis"]
+description = """
+Merge the three exploration analyses into a single plan-context document.
+
+## Dispatch Consolidation Agent
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="haiku",
+  description="Consolidate plan context",
+  prompt="Merge three codebase analysis files into one consolidated document.
+
+## Input Files (read ALL three first)
+- plans/{{feature}}/plan/architecture.tmp
+- plans/{{feature}}/plan/integration-surface.tmp
+- plans/{{feature}}/plan/patterns-conventions.tmp
+
+## Process
+
+1. Read all three files completely
+2. Identify overlapping findings (deduplicate, keep the more detailed version)
+3. Organize into a coherent single document
+4. Preserve ALL specific details — file paths, function signatures, type definitions
+5. Do NOT summarize away specifics. This document drives plan writing.
+
+## Output
+Write to: plans/{{feature}}/plan/plan-context.md
+
+Use this format:
+```markdown
+# Codebase Analysis: {{feature}}
+
+**Generated:** [date]
+**Source:** 3-agent parallel exploration
+
+---
+
+## Architecture Overview
+[From architecture.tmp — project structure, module boundaries, where feature fits]
+
+## Integration Surface
+[From integration-surface.tmp — files to modify, interfaces, extension points, data layer]
+
+## Patterns & Conventions
+[From patterns-conventions.tmp — precedent features, coding patterns, testing, error handling]
+
+## Key Files Reference
+[Consolidated list of specific files that matter for this feature, with why]
+
+## Constraints & Considerations
+[Anything from any analysis that constrains or shapes the implementation]
+```
+
+IMPORTANT: Preserve ALL file paths, function signatures, type definitions, and
+specific code references. The plan writer needs these details.
+
+After writing plan-context.md, delete the three .tmp files."
+)
+```
+
+This is a single agent — use blocking mode (no `run_in_background`).
+"""
+
+# ============================================================================
+# STEP 4: WRITE IMPLEMENTATION PLAN
+# ============================================================================
+
+[[template]]
+id = "{target}.write-plan"
+title = "Write implementation plan"
+needs = ["{target}.consolidate-analysis"]
+description = """
+Write the implementation plan. This is the core value step.
+
+## Inputs
+
+Read these files before writing:
+1. `plans/{{feature}}/spec.md` — the reviewed spec (WHAT to build)
+2. `plans/{{feature}}/plan/plan-context.md` — deep codebase analysis (WHERE it fits)
+3. `plans/{{feature}}/scope-questions/context.md` — surface context (if available)
+
+## Writing Principles
+
+**The plan bridges WHAT (spec) and HOW (code).** Every plan section should be
+traceable to spec requirements and grounded in codebase reality.
+
+**Structure for downstream consumption.** The design-to-beads step will
+mechanically decompose this plan:
+- Phases → epics
+- Tasks within phases → issues
+- Prerequisites → blocker dependencies
+- Acceptance criteria → issue acceptance criteria
+- Shared abstractions → standalone tasks in early phases
+
+**Be specific, not generic.** Don't write "add appropriate error handling" —
+write "use the existing `AppError` type from `internal/errors/errors.go`, wrapping
+with `fmt.Errorf("feature: %w", err)`." The plan should be implementable by an
+agent with zero prior context beyond this document and the codebase.
+
+**Phases should maximize parallelism.** Within each phase, identify which tasks
+are independent and which have true sequential dependencies. The more independent
+tasks per phase, the more parallelism design-to-beads can extract.
+
+## Output Location
+
+Write to: `plans/{{feature}}/plan/plan.md`
+
+## Document Structure
+
+```markdown
+# {{feature}} - Implementation Plan
+
+**Created:** [YYYY-MM-DD]
+**Status:** Draft
+**Source Spec:** plans/{{feature}}/spec.md
+
+---
+
+## Overview
+
+[2-3 paragraphs: what we're building, the implementation approach at a high level,
+and why this approach was chosen given the codebase structure]
+
+---
+
+## Architecture Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| [Where feature lives] | [Module/package] | [Why — based on codebase analysis] |
+| [Data storage approach] | [Choice] | [Why] |
+| [Pattern to follow] | [Existing pattern X] | [Precedent: feature Y uses this] |
+| ... | ... | ... |
+
+---
+
+## Shared Abstractions
+
+[Types, interfaces, utilities, or configuration that multiple phases will share.
+These should be built FIRST so subsequent phases can reference them.]
+
+For each shared abstraction:
+- **Name:** What it's called
+- **Location:** Where it lives (file path)
+- **Purpose:** What it provides
+- **Consumers:** Which phases/tasks use it
+
+---
+
+## Phased Delivery
+
+### Phase 1: [Name — e.g., "Foundation & Data Layer"]
+
+**Objective:** [What this phase achieves — a meaningful milestone]
+**Prerequisites:** None (first phase)
+
+#### Tasks
+
+**1.1 [Task title]**
+- **What:** [Specific description of work]
+- **Files:**
+  - Create: `path/to/new/file.ext` — [purpose]
+  - Modify: `path/to/existing/file.ext` — [what changes]
+- **Key details:** [Interfaces to implement, patterns to follow, edge cases]
+- **Acceptance criteria:**
+  - [ ] [Specific, verifiable criterion]
+  - [ ] [Tests: what should be tested and how]
+- **Dependencies:** None / [Task X.Y must complete first because...]
+
+**1.2 [Task title]**
+...
+
+#### Phase 1 Exit Criteria
+- [ ] [What must be true for Phase 1 to be "done"]
+- [ ] [Tests passing, functionality verifiable]
+
+---
+
+### Phase 2: [Name]
+
+**Objective:** [What this phase achieves]
+**Prerequisites:** Phase 1 — [specifically what from Phase 1 is needed]
+
+#### Tasks
+
+**2.1 [Task title]**
+...
+
+#### Phase 2 Exit Criteria
+...
+
+---
+
+### Phase N: [Name — typically "Integration & Polish"]
+...
+
+---
+
+## Cross-Cutting Concerns
+
+### Error Handling
+[Specific approach — what error types to use, how to propagate, user-facing vs internal.
+Reference existing patterns from codebase analysis.]
+
+### Testing Strategy
+[What to test at each phase, what framework/patterns to use, integration vs unit,
+any test utilities to leverage. Reference existing test patterns.]
+
+### Migration
+[If applicable — data migration, backward compatibility, feature flags.
+If not applicable, state "No migration needed" with brief rationale.]
+
+---
+
+## Technical Risks & Mitigations
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| [Specific risk] | [H/M/L] | [H/M/L] | [Specific mitigation] |
+| ... | ... | ... | ... |
+
+---
+
+## Spec Coverage Matrix
+
+| Spec Section | Plan Section | Phase |
+|-------------|-------------|-------|
+| [Every spec section] | [Where in plan it's addressed] | [Which phase] |
+
+**CRITICAL:** Every spec section MUST appear in this matrix. Missing entries =
+requirements that won't be implemented. Verify the matrix is complete.
+
+---
+
+## Appendix: Key File Paths
+
+[Quick reference of all files mentioned in the plan — new and existing]
+
+### New Files
+| Path | Phase | Purpose |
+|------|-------|---------|
+| ... | ... | ... |
+
+### Modified Files
+| Path | Phase | Changes |
+|------|-------|---------|
+| ... | ... | ... |
+```
+
+## Quality Checks
+
+Before completing this step, verify:
+
+- [ ] Every spec requirement maps to at least one task in a phase
+- [ ] Every task has specific file paths (not "update the relevant files")
+- [ ] Every task has acceptance criteria that are verifiable
+- [ ] Dependencies between tasks are explicit and justified
+- [ ] Shared abstractions are identified and placed in an early phase
+- [ ] Phases have clear exit criteria
+- [ ] The spec coverage matrix has no gaps
+- [ ] Patterns and conventions from plan-context.md are referenced (not generic advice)
+- [ ] The plan is implementable by an agent with no prior context
+"""
+
+# ============================================================================
+# STEP 5: COMMIT
+# ============================================================================
+
+[[template]]
+id = "{target}.commit"
+title = "Commit plan and artifacts"
+needs = ["{target}.write-plan"]
+description = """
+Commit the implementation plan and analysis artifacts to git.
+
+## Files to Commit
+
+- `plans/{{feature}}/plan/plan.md` — the implementation plan
+- `plans/{{feature}}/plan/plan-context.md` — consolidated codebase analysis
+
+## Commit Process
+
+1. Stage the files:
+   ```bash
+   git add plans/{{feature}}/plan/plan.md plans/{{feature}}/plan/plan-context.md
+   ```
+
+2. Check for any other untracked files in plans/{{feature}}/ that should be included:
+   ```bash
+   git status plans/{{feature}}/
+   ```
+
+3. Create commit:
+   ```bash
+   git commit -m "feat(plans): add {{feature}} implementation plan
+
+   Implementation plan for {{feature}} based on reviewed spec.
+
+   - [N] phases with [M] total tasks
+   - Architecture: [1-line summary of key decision]
+   - Spec coverage: all sections mapped
+
+   Co-Authored-By: Claude <agent>"
+   ```
+
+4. Push to remote:
+   ```bash
+   git push
+   ```
+
+## Output
+
+Report completion:
+```
+## Plan Committed
+
+**Files committed:**
+- plans/{{feature}}/plan/plan.md
+- plans/{{feature}}/plan/plan-context.md
+
+**Plan summary:**
+- Phases: [N]
+- Total tasks: [M]
+- Tasks ready immediately (no deps): [X]
+
+**Commit:** [short hash]
+**Pushed to:** origin/[branch]
+
+Ready for plan review step.
+```
+"""
