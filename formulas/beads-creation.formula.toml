@@ -1,0 +1,56 @@
+# Beads Creation Formula
+#
+# Convert a reviewed implementation plan into beads epics/sub-epics/issues
+# with validated dependencies for maximum parallelization.
+#
+# Uses 3 sequential review passes (completeness, dependencies, clarity)
+# with fixes applied between each, then a user checkpoint before execution.
+#
+# Requires:
+#   - plans/<feature>/03-plan/plan.md (output of plan-writing)
+#   - plans/<feature>/03-plan/plan-review.md (output of plan-review-to-spec, optional but recommended)
+#
+# Usage:
+#   gt sling beads-creation <crew> \
+#     --var feature="task-templates"
+
+description = """
+Convert a reviewed implementation plan into beads issues.
+
+Creates a fully-structured beads hierarchy:
+- 1 feature epic (top-level)
+- Phase sub-epics (one per plan phase)
+- Task issues (one per plan task, with acceptance criteria)
+- Blocker dependencies (only TRUE blockers — maximize parallelism)
+
+Uses 3 sequential review passes with fixes between each:
+1. Completeness — every plan task has a bead
+2. Dependencies — blockers are real, parallelism is maximized
+3. Clarity — each issue is implementable by a fresh agent
+
+User checkpoint before executing bd commands.
+
+Requires: plans/<feature>/03-plan/plan.md
+Output: beads hierarchy + plans/<feature>/04-beads/beads-{draft,report}.md
+"""
+formula = "beads-creation"
+type = "workflow"
+version = 1
+
+[vars]
+[vars.feature]
+description = "Feature name (used for input/output paths)"
+required = true
+
+# Placeholder step that will be expanded
+[[steps]]
+id = "create-beads"
+title = "Create beads from plan"
+description = "This step is expanded into the full beads creation workflow."
+
+# Composition: expand the placeholder with the expansion formula
+[compose]
+
+[[compose.expand]]
+target = "create-beads"
+with = "beads-creation-expansion"

@@ -1,0 +1,945 @@
+# Beads Creation - EXPANSION VERSION
+#
+# This is the expansion-type version that can be composed into other workflows.
+# Converts a reviewed implementation plan into beads epics/sub-epics/issues
+# with validated dependencies for maximum parallelization.
+#
+# Steps:
+#   1. Load inputs (validate plan.md + plan-review.md exist)
+#   2. Draft structure (feature epic → phase sub-epics → task issues)
+#   3. Review Pass 1: Completeness (sequential — fix before next pass)
+#   4. Review Pass 2: Dependencies (sequential — fix before next pass)
+#   5. Review Pass 3: Clarity (sequential — fix before next pass)
+#   6. User checkpoint (AskUserQuestion with summary)
+#   7. Execute (create beads via bd commands)
+#   8. Report & commit
+
+description = """
+EXPANSION: Convert a reviewed implementation plan into beads issues.
+
+This is an expansion-type formula for composition into other workflows.
+It transforms a single step into the full plan-to-beads process.
+
+Takes the plan produced by plan-writing (and reviewed by plan-review-to-spec)
+and produces a fully-structured beads hierarchy:
+- 1 feature epic (top-level)
+- Phase sub-epics (one per plan phase)
+- Task issues (one per plan task, with acceptance criteria)
+- Blocker dependencies (only TRUE blockers — maximize parallelism)
+
+Uses 3 sequential review passes with fixes applied between each,
+then a user checkpoint before executing bd commands.
+"""
+formula = "beads-creation-expansion"
+type = "expansion"
+version = 1
+
+# Note: vars are inherited from the parent workflow that expands this
+# Required vars: feature
+
+# ============================================================================
+# STEP 1: LOAD INPUTS
+# ============================================================================
+
+[[template]]
+id = "{target}.load-inputs"
+title = "Validate inputs"
+description = """
+Validate that all required artifacts exist before drafting beads structure.
+
+## Bead Lifecycle Commands
+
+This formula creates beads using `bd` commands. Reference:
+
+```bash
+# Create an epic
+bd create "Title" -t epic -p <priority> -d "Description"
+
+# Create a task issue
+bd create "Title" -t task -p <priority> -d "Description" \
+  --acceptance "- [ ] Criterion 1\n- [ ] Criterion 2"
+
+# Add parent-child relationship (epic contains issue)
+bd dep add <parent-id> <child-id> --type parent-child
+
+# Add blocker dependency (A must finish before B can start)
+bd dep add <blocker-id> <blocked-id>
+
+# Check for dependency cycles
+bd dep cycles
+
+# List items ready to work (no unresolved blockers)
+bd ready
+
+# Show a bead
+bd show <bead-id>
+
+# Close a bead
+bd close <bead-id>
+```
+
+Do NOT use `bd start`, `bd progress`, or `bd set-state` — these do not exist.
+
+## Required Files
+
+1. **Plan:** `plans/{{feature}}/03-plan/plan.md`
+   - If missing: STOP. Report error: "No plan found. Run plan-writing first."
+
+2. **Plan Review:** `plans/{{feature}}/03-plan/plan-review.md`
+   - If missing: WARN but continue. The plan hasn't been reviewed, which means
+     there may be spec coverage gaps. Note this in the draft.
+
+## Validation
+
+Read the plan and confirm it has the expected structure:
+- Phased Delivery section with numbered phases
+- Tasks within each phase (numbered X.Y format)
+- Acceptance criteria per task
+- Spec Coverage Matrix
+- Dependencies between tasks
+
+Count:
+- Number of phases
+- Number of tasks per phase
+- Total tasks
+- Tasks with explicit dependencies
+
+## Setup
+
+```bash
+mkdir -p plans/{{feature}}/04-beads
+```
+
+## Output
+
+Report:
+```
+## Inputs Validated
+
+**Plan:** plans/{{feature}}/03-plan/plan.md ✓
+**Plan Review:** plans/{{feature}}/03-plan/plan-review.md [✓ Found / ⚠ Not found]
+**Phases:** N
+**Total tasks:** M
+**Tasks with dependencies:** K
+
+Proceeding to draft structure...
+```
+"""
+
+# ============================================================================
+# STEP 2: DRAFT STRUCTURE
+# ============================================================================
+
+[[template]]
+id = "{target}.draft-structure"
+title = "Draft beads structure"
+needs = ["{target}.load-inputs"]
+description = """
+Create a written draft of the beads hierarchy before any review or execution.
+
+## Read Inputs
+
+Read the full plan:
+- `plans/{{feature}}/03-plan/plan.md`
+- `plans/{{feature}}/03-plan/plan-review.md` (if it exists — check for any
+  unresolved P2s that should inform issue descriptions)
+
+## Mapping Rules
+
+The plan has a specific structure that maps mechanically to beads:
+
+### Hierarchy
+
+```
+Feature Epic: "{{feature}}"
+├── Sub-Epic: Phase 1 — [Phase Name]
+│   ├── Issue: Task 1.1 — [Task Title]
+│   ├── Issue: Task 1.2 — [Task Title]
+│   └── Issue: Task 1.3 — [Task Title]
+├── Sub-Epic: Phase 2 — [Phase Name]
+│   ├── Issue: Task 2.1 — [Task Title]
+│   └── Issue: Task 2.2 — [Task Title]
+└── Sub-Epic: Phase N — [Phase Name]
+    └── ...
+```
+
+- **1 feature epic** (top-level) — title: `{{feature}}`
+- **1 sub-epic per plan phase** — title: `Phase N: [Phase Name]`
+- **1 issue per plan task** — title: `[Task Title]` (from the plan's task title)
+
+### Issue Content
+
+For each task issue, extract from the plan:
+
+- **Description:** The "What" field + "Key details" from the plan task.
+  Include specific file paths, function signatures, patterns to follow.
+  The description must be self-contained — an agent with no prior context
+  should be able to implement it from the description alone.
+
+- **Acceptance criteria:** Copy directly from the plan's checkbox items.
+  These are already in `- [ ] criterion` format.
+
+- **Priority:** Inherit from the plan phase or default to P2.
+  Phase 1 tasks → P1. All other phases → P2.
+
+### Dependencies
+
+Extract dependencies from two sources:
+
+1. **Explicit task dependencies:** The plan's "Dependencies" field on each task
+   (e.g., "Task 1.2 must complete first"). These become blocker deps.
+
+2. **Phase ordering:** Tasks in Phase N are blocked by the Phase N-1 exit criteria.
+   BUT: only add cross-phase blockers where the plan explicitly states a prerequisite.
+   Do NOT assume all of Phase 1 must finish before any Phase 2 task starts —
+   only add the specific cross-phase blockers the plan documents.
+
+3. **Within a phase:** Tasks are independent (parallel) unless the plan explicitly
+   states a dependency. Do NOT infer sequential ordering from task numbering.
+
+**Dependency principle:** When in doubt, leave it OUT. False blockers kill
+parallelism. Missing blockers can be added later; false blockers delay work.
+
+## Coverage Matrix
+
+Create a matrix mapping every plan task to its bead:
+
+```
+| Plan Task | Bead Title | Sub-Epic |
+|-----------|------------|----------|
+| 1.1 [Title] | [Title] | Phase 1: [Name] |
+| 1.2 [Title] | [Title] | Phase 1: [Name] |
+| 2.1 [Title] | [Title] | Phase 2: [Name] |
+...
+```
+
+**Every plan task MUST appear.** Missing tasks = work not captured = failure.
+
+Also check the plan's "Shared Abstractions" section — these may need dedicated
+issues in Phase 1 if they aren't already covered by numbered tasks.
+
+## Output
+
+Write the complete draft to: `plans/{{feature}}/04-beads/beads-draft.md`
+
+Use this format:
+```markdown
+# Beads Draft: {{feature}}
+
+**Generated:** [date]
+**Source:** plans/{{feature}}/03-plan/plan.md
+**Plan review status:** [Reviewed / Not reviewed]
+
+---
+
+## Structure
+
+### Feature Epic: {{feature}}
+
+**Type:** epic
+**Priority:** P1
+**Description:** [1-2 sentence overview from plan]
+
+---
+
+### Sub-Epic: Phase 1 — [Phase Name]
+
+**Type:** epic
+**Priority:** P1
+**Parent:** {{feature}} (feature epic)
+**Description:** [Phase objective from plan]
+
+#### Issue: [Task Title] (1.1)
+
+**Type:** task
+**Priority:** [P1/P2]
+**Parent:** Phase 1 sub-epic
+**Dependencies:** [None / List of task IDs this is blocked by]
+**Description:**
+[Full description — what, files, key details]
+
+**Acceptance Criteria:**
+- [ ] [Criterion 1]
+- [ ] [Criterion 2]
+
+#### Issue: [Task Title] (1.2)
+...
+
+---
+
+### Sub-Epic: Phase 2 — [Phase Name]
+...
+
+---
+
+## Dependencies
+
+| Blocker | Blocked | Reason |
+|---------|---------|--------|
+| Task 1.1 | Task 1.3 | [Why — from plan] |
+| Task 1.2 | Task 2.1 | [Why — cross-phase prerequisite] |
+...
+
+## Coverage Matrix
+
+| Plan Task | Bead Title | Sub-Epic |
+|-----------|------------|----------|
+| 1.1 [Title] | [Title] | Phase 1: [Name] |
+...
+
+**Plan tasks:** N
+**Beads mapped:** N
+**Coverage:** 100% / [X missing]
+
+## Summary
+
+- Feature epic: 1
+- Sub-epics (phases): N
+- Issues (tasks): M
+- Blocker dependencies: K
+- Items ready immediately (no blockers): W
+```
+"""
+
+# ============================================================================
+# STEP 3: REVIEW PASS 1 — COMPLETENESS
+# ============================================================================
+
+[[template]]
+id = "{target}.review-completeness"
+title = "Review Pass 1: Completeness"
+needs = ["{target}.draft-structure"]
+description = """
+Launch a subagent to review the draft for completeness against the plan.
+Apply fixes before proceeding to the next review pass.
+
+## Dispatch Review Agent
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  description="Review: beads completeness",
+  prompt="You are reviewing a beads issue draft for completeness against its source plan.
+
+## Your Role: Completeness Review
+
+Verify that EVERY actionable item in the plan has a corresponding bead.
+You are answering: 'Did the draft miss any work from the plan?'
+
+## Inputs
+
+Read these files:
+- `plans/{{feature}}/04-beads/beads-draft.md` — the draft to review
+- `plans/{{feature}}/03-plan/plan.md` — the source plan
+
+## Checks
+
+### 1. Task Coverage
+Walk through every numbered task in every phase of the plan.
+For each task, verify it appears in the draft's coverage matrix AND
+has a corresponding issue with matching content.
+
+### 2. Acceptance Criteria Preservation
+For each plan task's acceptance criteria checkboxes, verify they
+appear verbatim in the corresponding bead issue. Nothing dropped.
+
+### 3. Shared Abstractions
+Check the plan's 'Shared Abstractions' section. Each abstraction
+should either be a dedicated issue or clearly covered within an
+existing issue's description.
+
+### 4. Cross-Cutting Concerns
+Check the plan's cross-cutting sections (Error Handling, Testing
+Strategy, Migration). Are these captured in relevant issues'
+descriptions or acceptance criteria?
+
+### 5. Technical Details
+For each plan task's 'Key details' and 'Files' sections, verify
+this information appears in the corresponding bead's description.
+File paths, function signatures, and patterns must be preserved.
+
+## Output
+
+Return your findings as a structured report:
+
+```
+## Completeness Review
+
+**Tasks in plan:** N
+**Tasks in draft:** M
+**Missing:** [list or 'none']
+
+### Missing Content
+- [Task X.Y]: [What's missing]
+- [Shared abstraction Z]: [Not captured]
+
+### Incomplete Transfers
+- [Issue title]: Missing acceptance criterion '[criterion text]'
+- [Issue title]: Missing file path from Key details
+
+### Verdict: PASS / FAIL ([N] issues found)
+```
+
+Return the report as your response (do NOT write to file)."
+)
+```
+
+## Apply Fixes
+
+If the review found issues:
+1. Read the draft: `plans/{{feature}}/04-beads/beads-draft.md`
+2. Apply each fix (add missing issues, restore dropped criteria, etc.)
+3. Write the updated draft back to the same file
+4. Report what was fixed
+
+If the review was clean, report "Pass 1: Clean" and proceed.
+"""
+
+# ============================================================================
+# STEP 4: REVIEW PASS 2 — DEPENDENCIES
+# ============================================================================
+
+[[template]]
+id = "{target}.review-dependencies"
+title = "Review Pass 2: Dependencies"
+needs = ["{target}.review-completeness"]
+description = """
+Launch a subagent to review the draft's dependency structure.
+Apply fixes before proceeding to the next review pass.
+
+## Dispatch Review Agent
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  description="Review: beads dependencies",
+  prompt="You are reviewing the dependency structure of a beads issue draft.
+
+## Your Role: Dependencies Review
+
+Verify that dependencies are correct, minimal, and maximize parallelism.
+You are answering: 'Are the blockers real, and are we missing any?'
+
+## Inputs
+
+Read these files:
+- `plans/{{feature}}/04-beads/beads-draft.md` — the draft to review
+- `plans/{{feature}}/03-plan/plan.md` — the source plan (for explicit deps)
+
+## Checks
+
+### 1. False Sequential Ordering
+For EACH blocker dependency in the draft, answer:
+- Does the blocker truly need to COMPLETE before the blocked task can START?
+- Or could they run in parallel with the blocked task consuming the result later?
+- Would removing this blocker create any actual problem?
+
+Flag any dependency where the answer is 'could run in parallel'.
+
+### 2. Missing Blockers
+For each task, consider:
+- Does it reference types/interfaces created by another task?
+- Does it modify a file that another task also modifies (merge conflict risk)?
+- Does the plan explicitly state a prerequisite that isn't captured?
+
+### 3. Cross-Phase Dependencies
+Check that cross-phase blockers match what the plan states.
+Do NOT add blanket 'all of Phase N blocks all of Phase N+1' deps.
+Only specific task-to-task blockers that the plan documents.
+
+### 4. Circular Dependencies
+Check for any circular chains: A blocks B blocks C blocks A.
+These would prevent `bd dep cycles` from passing.
+
+### 5. Parallelism Assessment
+Count:
+- How many tasks are ready immediately (no blockers)?
+- What's the longest dependency chain (critical path)?
+- Could any changes increase parallelism without creating risk?
+
+## Output
+
+Return your findings as a structured report:
+
+```
+## Dependencies Review
+
+**Total dependencies:** N
+**False blockers (remove):** M
+**Missing blockers (add):** K
+**Circular chains:** [none / list]
+
+### False Blockers (Remove)
+- [Blocker] → [Blocked]: [Why it's false — they can run in parallel because...]
+
+### Missing Blockers (Add)
+- [Task A] should block [Task B]: [Why — B uses output of A]
+
+### Parallelism Assessment
+- Ready immediately: N tasks
+- Critical path length: M tasks
+- Parallelism improvement possible: [Yes/No — details]
+
+### Verdict: PASS / FAIL ([N] issues found)
+```
+
+Return the report as your response (do NOT write to file)."
+)
+```
+
+## Apply Fixes
+
+If the review found issues:
+1. Read the draft: `plans/{{feature}}/04-beads/beads-draft.md`
+2. Remove false blockers from the Dependencies table
+3. Add missing blockers with justification
+4. Update the Summary section's counts
+5. Write the updated draft back to the same file
+6. Report what was fixed
+
+If the review was clean, report "Pass 2: Clean" and proceed.
+"""
+
+# ============================================================================
+# STEP 5: REVIEW PASS 3 — CLARITY
+# ============================================================================
+
+[[template]]
+id = "{target}.review-clarity"
+title = "Review Pass 3: Clarity"
+needs = ["{target}.review-dependencies"]
+description = """
+Launch a subagent to review each issue for implementation readiness.
+Apply fixes before proceeding to user checkpoint.
+
+## Dispatch Review Agent
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  description="Review: beads clarity",
+  prompt="You are reviewing beads issues for implementation readiness.
+
+## Your Role: Clarity Review
+
+Verify that each issue can be picked up and executed by a fresh agent
+with zero prior context beyond the issue description and the codebase.
+You are answering: 'Could someone implement each issue from its description alone?'
+
+## Inputs
+
+Read this file:
+- `plans/{{feature}}/04-beads/beads-draft.md` — the draft to review
+
+## Checks
+
+For EACH issue in the draft:
+
+### 1. Title Clarity
+- Is the title specific enough to understand the work at a glance?
+- Does it use action verbs? ('Add X', 'Create Y', 'Modify Z')
+- Would two different developers interpret it the same way?
+
+### 2. Description Completeness
+- Are specific file paths included (not 'update the relevant files')?
+- Are function signatures or interface names mentioned where relevant?
+- Are patterns to follow referenced (not 'follow existing patterns')?
+- Is there enough context to start without reading other issues?
+
+### 3. Acceptance Criteria Verifiability
+- Can each criterion be objectively verified (not 'works correctly')?
+- Are there test-related criteria where appropriate?
+- Do criteria cover edge cases mentioned in the plan?
+
+### 4. Assumed Knowledge
+- Does the description assume knowledge from other issues?
+- Are there references like 'as described above' or 'see Phase 1'
+  that should be replaced with specific details?
+
+### 5. Vague Language
+Flag any instance of:
+- 'appropriate', 'relevant', 'necessary', 'proper'
+- 'handle errors correctly', 'add tests'
+- 'update as needed', 'configure properly'
+These should be replaced with specifics.
+
+## Output
+
+Return your findings as a structured report:
+
+```
+## Clarity Review
+
+**Issues reviewed:** N
+**Clear and ready:** M
+**Need improvement:** K
+
+### Issues Needing Improvement
+- [Issue title]: [What's unclear — specific problem and suggested fix]
+
+### Vague Language Found
+- [Issue title]: '[vague phrase]' → suggest '[specific replacement]'
+
+### Missing Context
+- [Issue title]: Assumes knowledge of [what] — add [specific detail]
+
+### Verdict: PASS / FAIL ([N] issues found)
+```
+
+Return the report as your response (do NOT write to file)."
+)
+```
+
+## Apply Fixes
+
+If the review found issues:
+1. Read the draft: `plans/{{feature}}/04-beads/beads-draft.md`
+2. Improve titles, descriptions, and acceptance criteria as recommended
+3. Replace vague language with specifics
+4. Add missing context to self-contained descriptions
+5. Write the updated draft back to the same file
+6. Report what was fixed
+
+If the review was clean, report "Pass 3: Clean" and proceed.
+
+## Review Summary
+
+After all three passes, report:
+```
+## Review Passes Complete
+
+**Pass 1 (Completeness):** [PASS/FAIL — N fixes applied]
+**Pass 2 (Dependencies):** [PASS/FAIL — N fixes applied]
+**Pass 3 (Clarity):** [PASS/FAIL — N fixes applied]
+
+Draft updated: plans/{{feature}}/04-beads/beads-draft.md
+Proceeding to user checkpoint...
+```
+"""
+
+# ============================================================================
+# STEP 6: USER CHECKPOINT
+# ============================================================================
+
+[[template]]
+id = "{target}.user-checkpoint"
+title = "User checkpoint before execution"
+needs = ["{target}.review-clarity"]
+description = """
+Present the final draft structure to the user and get confirmation before
+creating beads.
+
+## Present Summary
+
+Read the final draft from `plans/{{feature}}/04-beads/beads-draft.md` and
+present a concise summary:
+
+```
+## Beads Creation: {{feature}}
+
+**Review passes:** 3/3 complete
+**Source:** plans/{{feature}}/03-plan/plan.md
+
+### Structure
+
+| Level | Count |
+|-------|-------|
+| Feature epic | 1 |
+| Phase sub-epics | N |
+| Task issues | M |
+| Blocker dependencies | K |
+| Ready immediately | W |
+
+### Phases
+
+1. **Phase 1: [Name]** — N issues ([list ready ones])
+2. **Phase 2: [Name]** — N issues ([list ready ones])
+...
+
+### Coverage
+Plan tasks: N → Beads: N (100%)
+
+### Critical Path
+[Longest dependency chain: Task A → Task B → Task C (N steps)]
+
+Full draft: plans/{{feature}}/04-beads/beads-draft.md
+```
+
+## Get Confirmation
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "Ready to create [M] beads ([N] sub-epics + [K] issues + 1 feature epic)? Review the draft if needed: plans/{{feature}}/04-beads/beads-draft.md",
+    "header": "Create beads",
+    "options": [
+      {"label": "Create beads (Recommended)", "description": "Execute bd commands to create the full hierarchy"},
+      {"label": "Review draft first", "description": "I want to read the draft before confirming — pause here"},
+      {"label": "Abort", "description": "Don't create beads — I want to make changes first"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+If "Review draft first" → tell the user where the draft is and wait for them
+to say "go" or provide feedback. Apply any feedback, then re-present.
+
+If "Abort" → report "Beads creation aborted. Draft saved at
+plans/{{feature}}/04-beads/beads-draft.md for future use." and stop.
+
+If "Create beads" → proceed to execution.
+"""
+
+# ============================================================================
+# STEP 7: EXECUTE
+# ============================================================================
+
+[[template]]
+id = "{target}.execute"
+title = "Create beads"
+needs = ["{target}.user-checkpoint"]
+description = """
+Execute bd commands to create the full beads hierarchy.
+
+## Execution Order
+
+**Order matters.** Create parents before children, then add dependencies.
+
+### 1. Create Feature Epic
+
+```bash
+bd create "{{feature}}" -t epic -p P1 -d "[Description from draft]"
+```
+
+Capture the returned bead ID — all sub-epics will reference it.
+
+### 2. Create Phase Sub-Epics
+
+For each phase in order:
+```bash
+bd create "Phase N: [Phase Name]" -t epic -p [P1/P2] \
+  -d "[Phase objective from draft]"
+bd dep add <feature-epic-id> <phase-sub-epic-id> --type parent-child
+```
+
+Capture each sub-epic's bead ID — issues will reference them.
+
+### 3. Create Task Issues
+
+For each task issue in order:
+```bash
+bd create "[Task Title]" -t task -p [P1/P2] \
+  -d "[Full description from draft]" \
+  --acceptance "[Acceptance criteria from draft]"
+bd dep add <phase-sub-epic-id> <task-issue-id> --type parent-child
+```
+
+Capture each issue's bead ID — dependencies will reference them.
+
+**Important:** The acceptance criteria string uses `\n` for newlines between
+criteria items. Example:
+```bash
+--acceptance "- [ ] Criterion 1\n- [ ] Criterion 2\n- [ ] Criterion 3"
+```
+
+### 4. Add Blocker Dependencies
+
+For each blocker dependency from the draft's Dependencies table:
+```bash
+bd dep add <blocker-bead-id> <blocked-bead-id>
+```
+
+### 5. Verify
+
+```bash
+bd dep cycles    # Must return empty — no circular dependencies
+bd ready         # Should show expected number of unblocked items
+```
+
+If `bd dep cycles` finds cycles, fix them by removing the dependency that
+creates the cycle (refer to the draft's Dependencies table for which one
+is least critical).
+
+## ID Tracking
+
+Maintain a mapping as you create beads:
+
+```
+Plan Reference → Bead ID
+─────────────────────────
+Feature epic   → gt-XXXX
+Phase 1        → gt-YYYY
+Task 1.1       → gt-ZZZZ
+Task 1.2       → gt-AAAA
+...
+```
+
+This mapping is needed for:
+- Adding parent-child relationships
+- Adding blocker dependencies
+- The final report
+
+## Error Handling
+
+If a `bd create` command fails:
+- Report the error
+- Do NOT retry blindly — check the error message
+- Common issues: duplicate titles, invalid priority format
+- If stuck, report what was created so far and stop
+"""
+
+# ============================================================================
+# STEP 8: REPORT & COMMIT
+# ============================================================================
+
+[[template]]
+id = "{target}.report-commit"
+title = "Report and commit"
+needs = ["{target}.execute"]
+description = """
+Generate a creation report and commit all artifacts.
+
+## Generate Report
+
+Write to: `plans/{{feature}}/04-beads/beads-report.md`
+
+```markdown
+# Beads Report: {{feature}}
+
+**Generated:** [date]
+**Source plan:** plans/{{feature}}/03-plan/plan.md
+
+---
+
+## Creation Summary
+
+| Level | Count |
+|-------|-------|
+| Feature epic | 1 |
+| Phase sub-epics | N |
+| Task issues | M |
+| Blocker dependencies | K |
+| Ready immediately (no blockers) | W |
+
+---
+
+## Bead ID Mapping
+
+| Plan Reference | Bead ID | Type | Title |
+|---------------|---------|------|-------|
+| Feature | [id] | epic | {{feature}} |
+| Phase 1 | [id] | epic | Phase 1: [Name] |
+| Task 1.1 | [id] | task | [Title] |
+| Task 1.2 | [id] | task | [Title] |
+...
+
+---
+
+## Dependency Graph
+
+```
+[Visual representation of blocker relationships]
+
+Phase 1: [Name]
+  Task 1.1 ──→ Task 1.3
+  Task 1.2 (independent)
+
+Phase 2: [Name]
+  Task 1.3 ──→ Task 2.1
+  Task 2.2 (independent)
+...
+```
+
+---
+
+## Ready Queue
+
+Items with no blockers (can start immediately):
+
+| Bead ID | Title | Phase |
+|---------|-------|-------|
+| [id] | [title] | Phase N |
+...
+
+---
+
+## Coverage Verification
+
+| Plan Task | Bead ID | Status |
+|-----------|---------|--------|
+| 1.1 [Title] | [id] | Created ✓ |
+| 1.2 [Title] | [id] | Created ✓ |
+...
+
+**Plan tasks:** N
+**Beads created:** N
+**Coverage:** 100%
+
+---
+
+## Review Passes
+
+| Pass | Result | Fixes Applied |
+|------|--------|---------------|
+| 1. Completeness | [PASS/FAIL] | [N] |
+| 2. Dependencies | [PASS/FAIL] | [N] |
+| 3. Clarity | [PASS/FAIL] | [N] |
+```
+
+## Commit
+
+1. Stage files:
+   ```bash
+   git add plans/{{feature}}/04-beads/beads-draft.md
+   git add plans/{{feature}}/04-beads/beads-report.md
+   ```
+
+2. Check for any other files:
+   ```bash
+   git status plans/{{feature}}/
+   ```
+
+3. Create commit:
+   ```bash
+   git commit -m "feat(plans): create beads for {{feature}}
+
+   Plan → beads conversion with 3 review passes.
+
+   Created: 1 feature epic, [N] sub-epics, [M] task issues
+   Dependencies: [K] blockers, [W] items ready immediately
+   Coverage: 100% of plan tasks mapped
+
+   Co-Authored-By: Claude <agent>"
+   ```
+
+4. Push to remote:
+   ```bash
+   git push
+   ```
+
+## Output
+
+Report completion:
+```
+## Beads Created: {{feature}}
+
+**Feature epic:** [bead-id]
+**Sub-epics:** N (phases)
+**Issues:** M (tasks)
+**Dependencies:** K blockers
+**Ready queue:** W items
+
+**Files committed:**
+- plans/{{feature}}/04-beads/beads-draft.md
+- plans/{{feature}}/04-beads/beads-report.md
+
+**Commit:** [short hash]
+**Pushed to:** origin/[branch]
+
+Ready for next pipeline step (beads-review-to-plan).
+```
+"""
