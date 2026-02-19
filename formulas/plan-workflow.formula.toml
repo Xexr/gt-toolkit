@@ -1,0 +1,207 @@
+# Plan Workflow Formula
+#
+# Complete plan pipeline from spec to reviewed beads in 4 steps:
+#   Step 1: Plan writing (spec → implementation plan)
+#   Step 2: Plan review to spec (3-agent bidirectional review)
+#   Step 3: Beads creation (plan → beads epic with dependency graph)
+#   Step 4: Beads review to plan (3-agent bidirectional review)
+#
+# Uses expansion composition to inline all workflow steps.
+#
+# NOTE: Requires bd-6x0 fix (cross-expansion dependency inheritance)
+# to work correctly. Until then, steps 2-4 lose their `needs` after
+# cooking and may execute out of order.
+#
+# Usage:
+#   gt sling plan-workflow dypt/crew/neo \
+#     --var feature="command-palette" \
+#     --var brief="Add a keyboard-centric command palette for power users..."
+
+description = """
+Complete plan workflow from spec to reviewed beads.
+
+Orchestrates 4 steps:
+1. **Plan Writing** - Spec → phased implementation plan with dependency graph
+2. **Plan Review to Spec** - 3-agent bidirectional review (plan↔spec alignment)
+3. **Beads Creation** - Plan → beads epic with tasks and dependencies
+4. **Beads Review to Plan** - 3-agent bidirectional review (beads↔plan alignment)
+
+Steps 1 and 3 are interactive (user dialogue for decisions). Steps 2 and 4
+auto-apply restorative fixes and only escalate genuine ambiguities.
+
+**Requires:** Completed spec at plans/{{feature}}/02-spec/spec.md
+**Output:** Reviewed beads epic ready for implementation
+
+**NOTE:** Blocked by bd-6x0 (cross-expansion dependency loss). Until that
+fix lands, use the 4 formulas individually in sequence:
+  gt sling plan-writing <crew> --var feature="..." --var brief="..."
+  gt sling plan-review-to-spec <crew> --var feature="..."
+  gt sling beads-creation <crew> --var feature="..."
+  gt sling beads-review-to-plan <crew> --var feature="..."
+
+## Step Lifecycle (Molecule Work Loop)
+
+This formula runs as a molecule — each step is a wisp bead. Use the
+standard molecule work loop to advance through steps:
+
+```bash
+# 1. Find your current step:
+bd mol current <molecule-id>
+
+# 2. Execute the step (follow its instructions)
+
+# 3. Close the step when done:
+bd close <step-id>
+
+# 4. Find the next step:
+bd mol current <molecule-id>
+
+# 5. Repeat until molecule complete
+```
+
+`bd mol current` returns the next ready step (open + all blocking deps
+closed). Closing a step unblocks the next one in the dependency chain.
+
+**Crash recovery:** Each `bd close` is durable. If your session crashes,
+the next session runs `gt prime` which detects the molecule on your hook
+and shows progress. `bd mol current` picks up at the next unclosed step.
+
+Do NOT batch-close all steps at the end — close each one as you finish it.
+"""
+formula = "plan-workflow"
+type = "workflow"
+version = 1
+
+[vars]
+[vars.feature]
+description = "Feature name (used for all input/output paths)"
+required = true
+
+[vars.brief]
+description = "Brief description of the feature for plan-writing context"
+required = true
+
+# ============================================================================
+# STEP 1: PLAN WRITING (expanded from plan-writing-expansion)
+# ============================================================================
+
+[[steps]]
+id = "step-1-plan-writing"
+title = "Step 1: Plan Writing"
+description = """
+Transform the reviewed spec into a phased implementation plan.
+
+This step is expanded into the full plan-writing workflow:
+1. Load spec and codebase context
+2. Draft plan with phases, tasks, dependencies, and file paths
+3. Interactive review with user for scope/approach decisions
+4. Finalize and commit plan
+
+**Interactive:** Involves dialogue for architectural decisions.
+
+**Requires:** plans/{{feature}}/02-spec/spec.md (from spec-workflow)
+
+**Outputs:**
+- plans/{{feature}}/03-plan/plan.md
+"""
+
+# ============================================================================
+# STEP 2: PLAN REVIEW TO SPEC (expanded from plan-review-to-spec-expansion)
+# ============================================================================
+
+[[steps]]
+id = "step-2-plan-review"
+title = "Step 2: Plan Review to Spec"
+needs = ["step-1-plan-writing"]
+description = """
+3-agent bidirectional review checking plan↔spec alignment.
+
+This step is expanded into the full review workflow:
+1. Validate inputs (plan and spec exist)
+2. Dispatch 3 parallel Sonnet agents:
+   - Forward: spec → plan coverage (every spec requirement has a plan task)
+   - Reverse: plan → spec traceability (every plan task traces to the spec)
+   - Context: plan aligns with codebase reality
+3. Consolidate findings with cross-referencing
+4. Auto-apply restorative fixes, escalate ambiguities
+5. Commit review report
+
+**Outputs:**
+- plans/{{feature}}/03-plan/plan-review.md
+- Updated plans/{{feature}}/03-plan/plan.md (if fixes applied)
+"""
+
+# ============================================================================
+# STEP 3: BEADS CREATION (expanded from beads-creation-expansion)
+# ============================================================================
+
+[[steps]]
+id = "step-3-beads-creation"
+title = "Step 3: Beads Creation"
+needs = ["step-2-plan-review"]
+description = """
+Convert the reviewed plan into a beads epic with tasks and dependencies.
+
+This step is expanded into the full beads-creation workflow:
+1. Load plan and extract phases/tasks
+2. Draft beads structure (epics, tasks, dependencies)
+3. Interactive review with user for granularity/scope decisions
+4. Create beads via bd commands
+5. Verify dependency graph integrity
+6. Commit summary
+
+**Interactive:** Involves dialogue for granularity decisions.
+
+**Outputs:**
+- Beads epic with phase sub-epics and task issues
+- Dependency graph matching plan phasing
+- plans/{{feature}}/04-beads/ directory
+"""
+
+# ============================================================================
+# STEP 4: BEADS REVIEW TO PLAN (expanded from beads-review-to-plan-expansion)
+# ============================================================================
+
+[[steps]]
+id = "step-4-beads-review"
+title = "Step 4: Beads Review to Plan"
+needs = ["step-3-beads-creation"]
+description = """
+3-agent bidirectional review checking beads↔plan alignment.
+
+This step is expanded into the full review workflow:
+1. Validate inputs and snapshot beads state
+2. Dispatch 3 parallel Sonnet agents:
+   - Forward: plan → beads coverage (every plan task has a matching bead)
+   - Reverse: beads → plan traceability (every bead traces to the plan)
+   - Dependencies: graph integrity matches plan phasing
+3. Consolidate findings with cross-referencing
+4. Auto-apply restorative fixes, escalate ambiguities
+5. Commit review report
+
+**Outputs:**
+- plans/{{feature}}/04-beads/beads-review.md
+- Updated beads (dependencies, acceptance criteria, content)
+"""
+
+# ============================================================================
+# COMPOSITION: Expand placeholder steps with expansion formulas
+# ============================================================================
+
+[compose]
+
+[[compose.expand]]
+target = "step-1-plan-writing"
+with = "plan-writing-expansion"
+
+[[compose.expand]]
+target = "step-2-plan-review"
+with = "plan-review-to-spec-expansion"
+
+[[compose.expand]]
+target = "step-3-beads-creation"
+with = "beads-creation-expansion"
+
+[[compose.expand]]
+target = "step-4-beads-review"
+with = "beads-review-to-plan-expansion"
