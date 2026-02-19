@@ -83,8 +83,17 @@ beads state for the review agents to work from.
 
 ## Required Beads
 
-The beads-creation step should have created an epic with child issues.
-Run `bd list --labels {{feature}}` (or similar) to find the feature's beads.
+The beads-creation step should have created a root epic titled with the feature name.
+Find it by title search:
+
+```bash
+# Find the root epic by title
+bd list --title-contains {{feature}} --type epic
+```
+
+This should return the root epic (e.g., `dypt-xnr93 — task-import-export`).
+If multiple epics match, look for the one that is the root (has no parent
+or has sub-epics as children).
 
 If NO beads are found for this feature:
 - STOP. Report error: "No beads found for {{feature}}. Run beads-creation first."
@@ -96,13 +105,18 @@ rather than running bd commands (reduces agent failure modes):
 
 ```bash
 # 1. Find the root epic
-bd list --type epic --labels {{feature}} --json
+bd list --title-contains {{feature}} --type epic
 
-# 2. For each epic, get the full tree
-bd dep tree <epic-id>
+# 2. Get the root epic details
+bd show <root-epic-id>
 
-# 3. Show full details of every issue
-bd show <issue-id>   # for each issue in the tree
+# 3. List all children (tasks and sub-epics)
+#    For each sub-epic, list its children too
+bd list --parent <root-epic-id>
+bd list --parent <sub-epic-id>   # for each sub-epic
+
+# 4. Show full details of every issue
+bd show <issue-id>   # for each issue found
 ```
 
 Write the snapshot to: `plans/{{feature}}/04-beads/beads-snapshot.tmp`
@@ -680,11 +694,12 @@ Use this format:
 - Over-constrained: N
 ```
 
-After writing the report, delete the .tmp files:
+After writing the report, delete ALL .tmp files (including the beads snapshot):
 ```bash
 rm -f plans/{{feature}}/04-beads/review-forward.tmp
 rm -f plans/{{feature}}/04-beads/review-reverse.tmp
 rm -f plans/{{feature}}/04-beads/review-deps.tmp
+rm -f plans/{{feature}}/04-beads/beads-snapshot.tmp
 ```
 """
 
@@ -697,128 +712,141 @@ id = "{target}.present-resolve"
 title = "Present findings and resolve"
 needs = ["{target}.consolidate"]
 description = """
-Present the consolidated findings to the user and interactively resolve issues.
+Auto-apply obvious fixes and escalate only genuinely ambiguous findings.
 
-## Present Summary
+## Core Principle: Auto-Apply vs. Escalate
 
-Show a clear summary so the user can make informed decisions:
+The key distinction is whether a finding **restores plan content** or
+**introduces something new**:
+
+### Auto-Apply (No Question Needed)
+
+These are **restorative** fixes — plan content that was lost in translation
+to beads. Apply them silently:
+
+- **Missing dependencies that the plan implies** — e.g., plan says Phase 2
+  needs Phase 1, but the bead lacks the dep
+- **Dropped acceptance criteria** — plan had specific criteria, bead lost them
+- **Missing implementation notes/details** — plan had warnings, gotchas, or
+  specifics that didn't make it into the bead
+- **Content enrichment** — adding plan detail (file paths, function signatures,
+  constraints) to an under-specified bead
+- **Priority/label alignment** — trivial metadata fixes
+
+### Escalate (Ask the User)
+
+These involve **judgment** — the fix changes scope, adds something not in
+the plan, or removes existing work:
+
+- **Scope creep** — a bead has work not in the plan. Is it valid or invented?
+- **Novel dependencies** — a reviewer identified a dep the plan DIDN'T mention.
+  The reviewer might be right, but it's a judgment call.
+- **Removing dependencies** — removing a dep changes execution ordering
+- **Removing or closing beads** — deleting work is always a judgment call
+- **Creating NEW beads** — adding beads beyond what was in the plan
+- **Conflicting findings** — reviewers disagree about the same bead
+- **Ambiguous scope** — bead could be read multiple ways and the right
+  interpretation matters
+
+## Process
+
+### 1. Classify Each Finding
+
+Read the consolidated report. For each finding, classify it as
+**auto-apply** or **escalate** using the criteria above.
+
+### 2. Auto-Apply Restorative Fixes
+
+Execute ALL auto-apply fixes without asking. Run the bd commands from
+the consolidated report:
+
+```bash
+# Missing dependencies (plan-implied)
+bd dep add <bead-id> <blocker-id>
+
+# Restore dropped acceptance criteria
+bd update <bead-id> --acceptance "..."
+
+# Add missing implementation notes
+bd update <bead-id> -d "..."
+```
+
+### 3. Present Summary
+
+Show what was auto-applied and what needs discussion:
 
 ```
-## Beads Review Complete: {{feature}}
+## Beads Review: {{feature}}
 
-**Reviewers:** Forward (plan→beads) ✓, Reverse (beads→plan) ✓, Dependencies ✓
+**Reviewers:** Forward ✓, Reverse ✓, Dependencies ✓
 
-### Findings
+### Findings: [N] total ([M] auto-applied, [K] need discussion)
 
 | Category | P0 | P1 | P2 |
 |----------|----|----|-----|
 | Coverage Gaps | N | N | N |
 | Scope Creep | N | N | N |
 | Dependency Errors | N | N | N |
-| Content Fidelity | N | N | N |
+
+### Auto-Applied ([M] fixes)
+- Added dep: dypt-xxxx → dypt-yyyy (plan Phase 2 requires Phase 1)
+- Restored 2 acceptance criteria on dypt-xxxx
+- Added implementation notes to dypt-xxxx
+- [one line per fix]
 
 ### Parallelism
 - Dependency waves: N
 - Max parallel width: N beads
 - Ready to start: [N] beads
-
-### P0 Findings (Must Fix)
-- [One-line summary of each P0 finding]
-
-### P1 Findings (Should Fix)
-- [One-line summary of each P1 finding]
-
-### P2: N findings (see full report)
-
-Full report: plans/{{feature}}/04-beads/beads-review.md
 ```
 
-## If No P0 or P1 Findings
+### 4. Escalate Ambiguous Findings
 
-Report clean review and skip to commit.
-
-## If P0 or P1 Findings Exist
-
-### Resolve P0 Findings First
-
-For each P0 finding, present it with the fix commands:
+If there are findings classified as **escalate**, present each one with
+context about WHY it needs human judgment:
 
 ```
 AskUserQuestion(
   questions=[{
-    "question": "[Finding description]. Should I apply this fix?",
-    "header": "P0 Fix",
+    "question": "Bead dypt-xxxx adds a caching layer not in the plan. Keep it or remove it?",
+    "header": "Scope",
     "options": [
-      {"label": "Apply fix (Recommended)", "description": "[Brief description of the bd commands that will run]"},
-      {"label": "Modify fix", "description": "I want a different approach — let me explain"},
-      {"label": "Skip", "description": "Don't fix this — accept as-is"}
+      {"label": "Keep — useful addition", "description": "Accept the bead as a valid enhancement"},
+      {"label": "Remove — not in plan", "description": "Close the bead to stay on spec"},
+      {"label": "Modify", "description": "I want to adjust the scope — let me explain"}
     ],
     "multiSelect": false
   }]
 )
 ```
 
-### Then P1 Findings
+Only use AskUserQuestion for these. Never ask about restorative fixes.
 
-Present each P1 finding individually. You may batch up to 4 P1 findings
-into a single AskUserQuestion call (one question per finding).
+**If there are no escalation findings**, skip straight to the sanity check.
 
-### Then P2 Findings
+### 5. Apply Escalation Fixes
 
-Present P2 summary and offer a choice:
+For each user-approved escalation fix, execute the bd commands.
 
-```
-AskUserQuestion(
-  questions=[{
-    "question": "There are [N] P2 findings. Would you like to address any?",
-    "header": "P2 Items",
-    "options": [
-      {"label": "Skip P2s (Recommended)", "description": "Leave as documented — minor issues only"},
-      {"label": "Show details", "description": "Review each P2 and choose which to fix"},
-      {"label": "Fix all", "description": "Apply all [N] recommended P2 fixes"}
-    ],
-    "multiSelect": false
-  }]
-)
-```
+### 6. Sanity Check
 
-## Apply Fixes
+After all fixes (auto and escalation):
 
-For each finding the user approved:
-
-**Execute the bd commands** from the consolidated report:
-- Create missing beads
-- Add/remove dependencies
-- Update bead content
-- Close unbacked beads
-- Reparent misplaced beads
-
-After each fix, verify it applied correctly:
-```bash
-bd show <affected-id>
-```
-
-## After All Fixes Applied
-
-Run a quick sanity check:
 ```bash
 # Verify no cycles introduced
 bd dep cycles
 
 # Check updated ready queue
 bd ready
-
-# Show updated dependency tree
-bd dep tree <root-epic-id>
 ```
 
 Report:
 ```
 ## Fixes Applied
 
-**P0 resolved:** N of N
-**P1 resolved:** N of N
-**P2 resolved:** N of N (or "skipped")
+**Auto-applied:** N fixes (restorative)
+**Escalated:** N findings → N resolved, N skipped
+**Total resolved:** N of N
 
 **Beads created:** N
 **Beads updated:** N
