@@ -1,0 +1,75 @@
+# Beads Review to Plan Formula
+#
+# Verify that created beads issues accurately represent the implementation plan.
+# Uses 3 parallel review agents: plan→beads coverage, beads→plan traceability,
+# and dependency integrity checking.
+#
+# Requires:
+#   - plans/<feature>/03-plan/plan.md (output of plan-writing)
+#   - Beads issues created by beads-creation formula
+#
+# Usage:
+#   gt sling beads-review-to-plan <crew> \
+#     --var feature="task-templates"
+
+description = """
+Verify beads issues accurately represent the implementation plan.
+
+Runs 3 parallel review agents:
+1. Plan→Beads (forward): Does every plan task have a matching bead?
+2. Beads→Plan (reverse): Does every bead trace back to the plan?
+3. Dependency Integrity: Does the dependency graph match plan phasing?
+
+Requires: plans/<feature>/03-plan/plan.md and beads created by beads-creation.
+Output: plans/<feature>/04-beads/beads-review.md
+
+## Step Lifecycle (Molecule Work Loop)
+
+This formula runs as a molecule — each step is a wisp bead. Use the
+standard molecule work loop to advance through steps:
+
+```bash
+# 1. Find your current step:
+bd mol current <molecule-id>
+
+# 2. Execute the step (follow its instructions)
+
+# 3. Close the step when done:
+bd close <step-id>
+
+# 4. Find the next step:
+bd mol current <molecule-id>
+
+# 5. Repeat until molecule complete
+```
+
+`bd mol current` returns the next ready step (open + all blocking deps
+closed). Closing a step unblocks the next one in the dependency chain.
+
+**Crash recovery:** Each `bd close` is durable. If your session crashes,
+the next session runs `gt prime` which detects the molecule on your hook
+and shows progress. `bd mol current` picks up at the next unclosed step.
+
+Do NOT batch-close all steps at the end — close each one as you finish it.
+"""
+formula = "beads-review-to-plan"
+type = "workflow"
+version = 1
+
+[vars]
+[vars.feature]
+description = "Feature name (used for input/output paths)"
+required = true
+
+# Placeholder step that will be expanded
+[[steps]]
+id = "review-beads"
+title = "Review beads against plan"
+description = "This step is expanded into the full beads review workflow."
+
+# Composition: expand the placeholder with the expansion formula
+[compose]
+
+[[compose.expand]]
+target = "review-beads"
+with = "beads-review-to-plan-expansion"

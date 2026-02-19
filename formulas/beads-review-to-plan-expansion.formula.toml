@@ -1,0 +1,911 @@
+# Beads Review to Plan - EXPANSION VERSION
+#
+# This is the expansion-type version that can be composed into other workflows.
+# Verifies that the created beads issues accurately represent the plan, using
+# 3 parallel review agents with bidirectional coverage checking plus a
+# dependency integrity check.
+#
+# Steps:
+#   1. Load inputs (validate plan and beads exist, snapshot beads state)
+#   2. Parallel review (3 agents: plan→beads, beads→plan, dependency integrity)
+#   3. Consolidate findings
+#   4. Present & resolve (interactive)
+#   5. Commit updates
+
+description = """
+EXPANSION: Verify beads issues accurately represent the implementation plan.
+
+This is an expansion-type formula for composition into other workflows.
+It transforms a single step into the full beads-review-to-plan process.
+
+Runs 3 parallel review agents:
+1. Plan→Beads (forward): Does every plan task have a corresponding bead with matching content?
+2. Beads→Plan (reverse): Does every bead trace back to a plan task? Catches conversion scope creep.
+3. Dependency Integrity: Does the beads dependency graph match the plan's phasing and prerequisites?
+
+The bidirectional approach catches both dropped tasks (forward) and invented work
+(reverse), while the dependency check catches broken execution ordering.
+
+## Step Lifecycle (Molecule Work Loop)
+
+This formula runs as a molecule — each step is a wisp bead. Use the
+standard molecule work loop to advance through steps:
+
+```bash
+# 1. Find your current step:
+bd mol current <molecule-id>
+
+# 2. Execute the step (follow its instructions)
+
+# 3. Close the step when done:
+bd close <step-id>
+
+# 4. Find the next step:
+bd mol current <molecule-id>
+
+# 5. Repeat until molecule complete
+```
+
+`bd mol current` returns the next ready step (open + all blocking deps
+closed). Closing a step unblocks the next one in the dependency chain.
+
+**Crash recovery:** Each `bd close` is durable. If your session crashes,
+the next session runs `gt prime` which detects the molecule on your hook
+and shows progress. `bd mol current` picks up at the next unclosed step.
+
+Do NOT batch-close all steps at the end — close each one as you finish it.
+"""
+formula = "beads-review-to-plan-expansion"
+type = "expansion"
+version = 1
+
+# Note: vars are inherited from the parent workflow that expands this
+# Required vars: feature
+
+# ============================================================================
+# STEP 1: LOAD INPUTS & SNAPSHOT BEADS
+# ============================================================================
+
+[[template]]
+id = "{target}.load-inputs"
+title = "Validate inputs and snapshot beads"
+description = """
+Validate that all required artifacts exist and capture a snapshot of the current
+beads state for the review agents to work from.
+
+## Required Files
+
+1. **Plan:** `plans/{{feature}}/03-plan/plan.md`
+   - If missing: STOP. Report error: "No plan found. Run plan-writing first."
+
+2. **Plan Review:** `plans/{{feature}}/03-plan/plan-review.md`
+   - If missing: WARN but continue. This means plan-review-to-spec was skipped.
+
+## Required Beads
+
+The beads-creation step should have created an epic with child issues.
+Run `bd list --labels {{feature}}` (or similar) to find the feature's beads.
+
+If NO beads are found for this feature:
+- STOP. Report error: "No beads found for {{feature}}. Run beads-creation first."
+
+## Snapshot Beads State
+
+Create a comprehensive snapshot so review agents can work from a static document
+rather than running bd commands (reduces agent failure modes):
+
+```bash
+# 1. Find the root epic
+bd list --type epic --labels {{feature}} --json
+
+# 2. For each epic, get the full tree
+bd dep tree <epic-id>
+
+# 3. Show full details of every issue
+bd show <issue-id>   # for each issue in the tree
+```
+
+Write the snapshot to: `plans/{{feature}}/04-beads/beads-snapshot.tmp`
+
+Format:
+```markdown
+# Beads Snapshot: {{feature}}
+
+**Generated:** [date]
+**Total issues:** N (M epics, N tasks)
+
+## Epic: [epic-id] — [title]
+
+### [issue-id] — [title]
+- **Type:** task / epic
+- **Priority:** P0-P4
+- **Labels:** [labels]
+- **Parent:** [parent-id or root]
+- **Blocks:** [list of issue IDs this blocks]
+- **Blocked by:** [list of issue IDs blocking this]
+- **Description:** [full description]
+- **Acceptance Criteria:** [full acceptance criteria]
+
+[Repeat for every issue]
+
+## Dependency Graph
+
+[Output of bd dep tree for the root epic]
+
+## Ready Queue
+
+[Output of bd ready filtered to this feature's issues]
+```
+
+## Output
+
+Report:
+```
+## Inputs Validated
+
+**Plan:** plans/{{feature}}/03-plan/plan.md ✓
+**Plan Review:** plans/{{feature}}/03-plan/plan-review.md [✓ Found / ⚠ Not found]
+**Beads:** [N] issues found for {{feature}}
+**Snapshot:** plans/{{feature}}/04-beads/beads-snapshot.tmp ✓
+
+Proceeding to parallel review...
+```
+"""
+
+# ============================================================================
+# STEP 2: PARALLEL REVIEW (3 agents)
+# ============================================================================
+
+[[template]]
+id = "{target}.parallel-review"
+title = "Dispatch 3 parallel review agents"
+needs = ["{target}.load-inputs"]
+description = """
+Dispatch THREE parallel review agents, each checking a different direction.
+All three run simultaneously as background tasks.
+
+**Pre-read the plan and beads snapshot** before dispatching. Include the full
+text in each agent's prompt so they have complete context.
+
+## Agent 1: Plan → Beads (Forward Coverage)
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  run_in_background=true,
+  description="Review: plan→beads coverage",
+  prompt="You are reviewing beads issues for completeness against their source plan.
+
+## Your Role: Forward Coverage
+
+Walk through EVERY task in the plan and verify it has a corresponding bead
+with matching content. You are answering: 'Did the beads-creation step
+drop or under-specify any plan tasks?'
+
+## Inputs
+
+Read these files:
+- `plans/{{feature}}/03-plan/plan.md` — the implementation plan
+- `plans/{{feature}}/04-beads/beads-snapshot.tmp` — snapshot of all beads
+
+## Process
+
+### 1. Extract Plan Tasks
+
+Walk the plan phase by phase. For each task, extract:
+- Task ID and title
+- Phase it belongs to
+- What it proposes to build or change
+- Files it plans to create or modify
+- Acceptance criteria
+- Prerequisites / dependencies on other tasks
+
+### 2. Match Each Plan Task to a Bead
+
+For each plan task, find its corresponding bead in the snapshot:
+- Is there a bead with a matching title or clearly equivalent scope?
+- Does the bead's description capture the task's key details?
+- Are the plan's acceptance criteria preserved in the bead?
+- Is the bead under the correct epic (matching the plan phase)?
+
+### 3. Assess Content Fidelity
+
+For each matched pair, check:
+- **Title:** Does the bead title clearly describe the plan task?
+- **Description:** Are key implementation details preserved? File paths, approach, constraints?
+- **Acceptance criteria:** Are they concrete and testable? Do they match the plan?
+- **Priority:** Does the bead priority reflect the plan's phasing (earlier phases = higher priority)?
+- **Labels:** Are feature labels applied?
+
+### 4. Check Cross-Cutting Plan Elements
+
+Verify these plan elements are captured in beads:
+- Architecture decisions — are they referenced in relevant beads?
+- Testing strategy — are test tasks created?
+- Migration/data tasks — are they separate beads if needed?
+
+## Output
+
+Write to: `plans/{{feature}}/04-beads/review-forward.tmp`
+
+Use this format:
+```markdown
+# Forward Coverage: Plan → Beads
+
+## Coverage Summary
+- **Plan tasks reviewed:** N
+- **Fully matched:** N
+- **Partially matched (content gaps):** N
+- **No matching bead:** N
+
+## Phase-by-Phase Analysis
+
+### Phase X: [Phase Name]
+
+**Plan Task X.1: [Task Title]**
+- **Matched bead:** [bead-id] — [bead title] / NO MATCH
+- **Title match:** ✓ / ⚠ Divergent
+- **Description fidelity:** Full / Partial (missing: [what]) / Empty
+- **Acceptance criteria:** Preserved / Partial / Missing
+- **Priority alignment:** ✓ / ⚠ [Expected PX, got PY]
+- **Severity:** P0 (no bead) / P1 (significant content loss) / P2 (minor gap)
+- **Gap (if any):** [What's missing or wrong]
+
+[Repeat for every plan task]
+
+## Cross-Cutting Elements
+- Architecture decisions captured: Yes / Partially / No
+- Testing tasks present: Yes / No
+- Migration tasks present: [N/A or Yes/No]
+
+## Summary
+- P0 (missing beads): N
+- P1 (significant content loss): N
+- P2 (minor gaps): N
+```
+
+Use the Write tool. Do NOT return output to conversation — write to file only."
+)
+```
+
+## Agent 2: Beads → Plan (Reverse Traceability)
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  run_in_background=true,
+  description="Review: beads→plan traceability",
+  prompt="You are reviewing beads issues to verify every one traces back to the plan.
+
+## Your Role: Reverse Traceability
+
+Walk through EVERY bead issue and verify it has a basis in the plan.
+You are answering: 'Did the beads-creation step invent work that isn't in the plan?'
+
+## Inputs
+
+Read these files:
+- `plans/{{feature}}/03-plan/plan.md` — the implementation plan
+- `plans/{{feature}}/04-beads/beads-snapshot.tmp` — snapshot of all beads
+
+## Process
+
+### 1. Extract Every Bead
+
+From the snapshot, list every issue (epics and tasks). For each, note:
+- Issue ID and title
+- Type (epic / task)
+- Description content
+- Acceptance criteria
+- Parent epic
+- Dependencies
+
+### 2. Trace Each Bead Back to the Plan
+
+For each bead, answer:
+- Which plan phase/task justifies this bead?
+- Does the bead scope match the plan task, or has it expanded?
+- Is the bead at the right granularity (not too coarse, not too fine)?
+
+### 3. Classify Each Bead
+
+- **Plan-backed:** Direct conversion of a plan task
+- **Plan-implied:** Not an explicit task but necessary infrastructure
+  (e.g., shared types, test utilities). These are acceptable.
+- **Structural:** Epic groupings that organize plan phases. Acceptable.
+- **Scope creep:** Work beyond what the plan specifies. Problem.
+- **Gold-plating:** Extra detail, acceptance criteria, or scope not in the plan.
+- **Split/merged:** A plan task was split into multiple beads or merged.
+  Note whether the split/merge preserves all content.
+
+### 4. Check Epic Hierarchy
+
+Verify the epic structure matches the plan's phases:
+- Each plan phase should map to an epic (or sub-epic)
+- Tasks within a phase should be children of the correct epic
+- No orphan tasks outside the epic hierarchy
+
+### 5. Check for Granularity Issues
+
+- **Too coarse:** A single bead covers multiple plan tasks (content merged/lost)
+- **Too fine:** A plan task was split into many beads unnecessarily
+- **Just right:** 1:1 mapping or reasonable splits with content preserved
+
+## Output
+
+Write to: `plans/{{feature}}/04-beads/review-reverse.tmp`
+
+Use this format:
+```markdown
+# Reverse Traceability: Beads → Plan
+
+## Traceability Summary
+- **Beads reviewed:** N
+- **Plan-backed:** N
+- **Plan-implied (acceptable):** N
+- **Structural (acceptable):** N
+- **Scope creep (problem):** N
+- **Gold-plating (problem):** N
+
+## Epic-by-Epic Analysis
+
+### Epic: [epic-id] — [title]
+**Maps to plan phase:** [Phase X: Name] / NO MATCH
+
+**Bead [issue-id]: [title]**
+- **Classification:** Plan-backed / Plan-implied / Structural / Scope creep / Gold-plating
+- **Plan basis:** [Phase X, Task Y.Z] or 'implied by...' or 'NONE'
+- **Granularity:** Appropriate / Too coarse / Too fine
+- **Issue (if any):** [What's wrong]
+- **Severity:** P0 (unbacked scope) / P1 (gold-plating) / P2 (minor granularity issue)
+
+[Repeat for every bead]
+
+## Epic Hierarchy Assessment
+- Plan phases mapped to epics: N of N
+- Orphan tasks (outside any epic): N
+- Misplaced tasks (wrong epic): N
+
+## Summary
+- P0 (unbacked scope / missing plan basis): N
+- P1 (gold-plating / content drift): N
+- P2 (granularity / hierarchy): N
+```
+
+Use the Write tool. Do NOT return output to conversation — write to file only."
+)
+```
+
+## Agent 3: Dependency Integrity
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="sonnet",
+  run_in_background=true,
+  description="Review: dependency integrity",
+  prompt="You are reviewing the beads dependency graph for correctness against the plan.
+
+## Your Role: Dependency Integrity
+
+Verify the beads dependency graph correctly reflects the execution ordering
+in the plan. You are answering: 'Can these beads be executed in the right
+order with maximum safe parallelism?'
+
+## Inputs
+
+Read these files:
+- `plans/{{feature}}/03-plan/plan.md` — the implementation plan
+- `plans/{{feature}}/04-beads/beads-snapshot.tmp` — snapshot of all beads (includes dep graph)
+
+## Process
+
+### 1. Extract Plan Ordering Constraints
+
+From the plan, identify:
+- Phase ordering (Phase 1 before Phase 2, etc.)
+- Explicit task prerequisites ('Task 2.1 requires Task 1.3')
+- Implicit ordering (a task reads output of another task)
+- Tasks the plan says can run in parallel
+
+### 2. Extract Beads Dependency Graph
+
+From the snapshot, build the actual dependency graph:
+- Which beads block which other beads?
+- What is the critical path?
+- Which beads have no blockers (ready queue)?
+
+### 3. Compare: Missing Blockers
+
+For each plan ordering constraint, verify a corresponding bead dependency exists:
+- Phase boundaries: Do all Phase N beads depend on (at least) the completion
+  of relevant Phase N-1 beads?
+- Task prerequisites: If plan says Task B needs Task A, does bead-B block on bead-A?
+- Implicit ordering: If Task B reads Task A's output, is there a dependency?
+
+Missing blockers mean tasks could start before their prerequisites are done.
+This is a P0 issue.
+
+### 4. Compare: Over-Constrained Dependencies
+
+Look for bead dependencies that DON'T correspond to plan constraints:
+- Two tasks in the same phase serialized when they could be parallel
+- A task depending on something it doesn't actually need
+- Chain dependencies (A→B→C) where A→C would suffice
+
+Over-constraining reduces parallelism. This is a P1 issue.
+
+### 5. Check Structural Integrity
+
+- **Circular dependencies:** Any cycles? (should be impossible if bd dep cycles is clean)
+- **Orphan beads:** Beads with no parent epic and no dependencies (disconnected from graph)
+- **Ready queue correctness:** Do the beads with no blockers correspond to
+  tasks the plan says can start immediately?
+- **Critical path:** Does the longest dependency chain match the plan's expected
+  execution order?
+
+### 6. Parallelism Assessment
+
+Calculate and report:
+- **Maximum parallel width:** How many beads can run simultaneously at peak?
+- **Dependency waves:** Group beads into waves (all beads in a wave can run in parallel)
+- **Plan alignment:** Does the wave structure match the plan's phasing?
+
+## Output
+
+Write to: `plans/{{feature}}/04-beads/review-deps.tmp`
+
+Use this format:
+```markdown
+# Dependency Integrity: Beads Graph vs Plan
+
+## Dependency Summary
+- **Plan ordering constraints identified:** N
+- **Correctly represented in beads:** N
+- **Missing blockers (tasks can start too early):** N
+- **Over-constrained (false sequential):** N
+
+## Missing Blockers (P0)
+
+| Bead | Should Block On | Plan Basis | Impact |
+|------|----------------|------------|--------|
+| [id] | [id] | [Plan says Task X needs Task Y] | [What goes wrong] |
+
+## Over-Constrained Dependencies (P1)
+
+| Bead | Unnecessarily Blocks On | Why Not Needed | Parallelism Gained |
+|------|------------------------|----------------|-------------------|
+| [id] | [id] | [Explanation] | [What can now run in parallel] |
+
+## Structural Integrity
+- Circular dependencies: None / [List]
+- Orphan beads: None / [List]
+- Ready queue matches plan: Yes / No ([details])
+
+## Parallelism Assessment
+
+### Dependency Waves
+| Wave | Beads | Can Run In Parallel |
+|------|-------|-------------------|
+| 1 | [id1], [id2], [id3] | Yes (no inter-dependencies) |
+| 2 | [id4], [id5] | Yes (all wave-1 deps satisfied) |
+| ... | ... | ... |
+
+### Statistics
+- Maximum parallel width: N beads
+- Total waves: N
+- Critical path length: N beads
+- Plan phases: N → Waves: N [Aligned / Misaligned]
+
+## Summary
+- P0 (missing blockers): N
+- P1 (over-constrained): N
+- P2 (structural / parallelism): N
+```
+
+Use the Write tool. Do NOT return output to conversation — write to file only."
+)
+```
+
+## Wait for All Agents
+
+Use TaskOutput with `block=true, timeout=600000` for each agent.
+Call all TaskOutput calls in a SINGLE message for parallel collection.
+
+If any agent fails, report the failure and continue with available results.
+"""
+
+# ============================================================================
+# STEP 3: CONSOLIDATE FINDINGS
+# ============================================================================
+
+[[template]]
+id = "{target}.consolidate"
+title = "Consolidate review findings"
+needs = ["{target}.parallel-review"]
+description = """
+Merge the three review results into a single consolidated report.
+
+## Input Files
+
+Read all available review files:
+- `plans/{{feature}}/04-beads/review-forward.tmp` — plan→beads coverage (REQUIRED)
+- `plans/{{feature}}/04-beads/review-reverse.tmp` — beads→plan traceability (REQUIRED)
+- `plans/{{feature}}/04-beads/review-deps.tmp` — dependency integrity (REQUIRED)
+
+## Consolidation Process
+
+### 1. Cross-Reference Findings
+
+Look for the same issue found from multiple angles:
+- A missing bead (forward) with no plan basis for surrounding beads (reverse)
+  → Systematic conversion gap, escalate severity
+- Over-constrained deps (deps review) on a task that's also gold-plated (reverse)
+  → Stronger case for removing the bead entirely
+- Missing blocker (deps) for a partially-matched bead (forward)
+  → The bead needs both content and dependency fixes
+
+Issues found by multiple reviewers get a **[CORROBORATED]** tag and elevated priority.
+
+### 2. Deduplicate
+
+Where multiple reviewers found the same underlying issue:
+- Keep the most detailed description
+- Note which reviewers independently identified it
+- Use the highest severity from any reviewer
+
+### 3. Categorize All Findings
+
+Group into these categories:
+
+**Coverage Gaps** (from forward review)
+- Plan tasks with no matching bead
+- Beads with significant content loss from the plan task
+
+**Conversion Scope Creep** (from reverse review)
+- Beads with no plan basis
+- Gold-plating (bead adds requirements beyond plan)
+
+**Dependency Errors** (from deps review)
+- Missing blockers (tasks can start before prerequisites)
+- Over-constrained dependencies (false serialization)
+- Structural issues (orphans, hierarchy problems)
+
+**Content Fidelity** (cross-review)
+- Description drift between plan and bead
+- Acceptance criteria mismatch
+- Priority/label inconsistencies
+
+### 4. Severity Assignment
+
+- **P0 — Must Fix:** Missing beads for plan tasks, missing blockers, unbacked beads with significant scope
+- **P1 — Should Fix:** Significant content loss, over-constrained deps, gold-plating
+- **P2 — Consider:** Minor content gaps, granularity issues, label/priority tweaks
+
+### 5. Actionability
+
+For each finding, determine the specific bd command(s) to fix it:
+
+- **Create missing bead:** `bd create "Title" -t task -d "..." --parent <epic-id>`
+- **Add missing dependency:** `bd dep add <blocker-id> <blocked-id>`
+- **Remove false dependency:** `bd dep remove <blocker-id> <blocked-id>`
+- **Update bead content:** `bd update <id> -d "..." --acceptance "..."`
+- **Close unbacked bead:** `bd close <id>` with rationale
+- **Reparent bead:** Move to correct epic
+
+## Output
+
+Write consolidated report to: `plans/{{feature}}/04-beads/beads-review.md`
+
+Use this format:
+```markdown
+# Beads Review: {{feature}}
+
+**Generated:** [date]
+**Reviewers:** Forward (plan→beads), Reverse (beads→plan), Dependencies (graph integrity)
+
+---
+
+## Summary
+
+| Category | P0 | P1 | P2 | Total |
+|----------|----|----|----|----|
+| Coverage Gaps | N | N | N | N |
+| Conversion Scope Creep | N | N | N | N |
+| Dependency Errors | N | N | N | N |
+| Content Fidelity | N | N | N | N |
+| **Total** | **N** | **N** | **N** | **N** |
+
+---
+
+## P0 Findings (Must Fix)
+
+### 1. [Finding Title] [CORROBORATED]
+- **Category:** Coverage Gap / Scope Creep / Dependency Error
+- **Found by:** Forward + Dependencies (corroborated)
+- **What:** [Description]
+- **Evidence:** [What the reviewers found]
+- **Fix command(s):**
+  ```bash
+  bd create "Missing task title" -t task -d "Description" --parent <epic-id>
+  bd dep add <blocker-id> <new-id>
+  ```
+
+---
+
+## P1 Findings (Should Fix)
+
+### N. [Finding Title]
+- **Category:** [Category]
+- **Found by:** [Which reviewer(s)]
+- **What:** [Description]
+- **Fix command(s):** [Specific bd commands]
+
+---
+
+## P2 Findings (Consider)
+
+### N. [Finding Title]
+- **Category:** [Category]
+- **Found by:** [Which reviewer(s)]
+- **What:** [Description]
+- **Fix suggestion:** [What to do]
+
+---
+
+## Parallelism Report
+
+- **Dependency waves:** N
+- **Maximum parallel width:** N beads
+- **Critical path:** N beads
+- **Ready queue:** [list of beads ready to start]
+
+## Coverage Summary
+
+**Forward (Plan→Beads):**
+- Fully matched: N tasks
+- Partially matched: N tasks
+- No matching bead: N tasks
+
+**Reverse (Beads→Plan):**
+- Plan-backed: N beads
+- Plan-implied: N beads
+- Scope creep: N beads
+
+**Dependencies:**
+- Correctly constrained: N
+- Missing blockers: N
+- Over-constrained: N
+```
+
+After writing the report, delete the .tmp files:
+```bash
+rm -f plans/{{feature}}/04-beads/review-forward.tmp
+rm -f plans/{{feature}}/04-beads/review-reverse.tmp
+rm -f plans/{{feature}}/04-beads/review-deps.tmp
+```
+"""
+
+# ============================================================================
+# STEP 4: PRESENT & RESOLVE
+# ============================================================================
+
+[[template]]
+id = "{target}.present-resolve"
+title = "Present findings and resolve"
+needs = ["{target}.consolidate"]
+description = """
+Present the consolidated findings to the user and interactively resolve issues.
+
+## Present Summary
+
+Show a clear summary so the user can make informed decisions:
+
+```
+## Beads Review Complete: {{feature}}
+
+**Reviewers:** Forward (plan→beads) ✓, Reverse (beads→plan) ✓, Dependencies ✓
+
+### Findings
+
+| Category | P0 | P1 | P2 |
+|----------|----|----|-----|
+| Coverage Gaps | N | N | N |
+| Scope Creep | N | N | N |
+| Dependency Errors | N | N | N |
+| Content Fidelity | N | N | N |
+
+### Parallelism
+- Dependency waves: N
+- Max parallel width: N beads
+- Ready to start: [N] beads
+
+### P0 Findings (Must Fix)
+- [One-line summary of each P0 finding]
+
+### P1 Findings (Should Fix)
+- [One-line summary of each P1 finding]
+
+### P2: N findings (see full report)
+
+Full report: plans/{{feature}}/04-beads/beads-review.md
+```
+
+## If No P0 or P1 Findings
+
+Report clean review and skip to commit.
+
+## If P0 or P1 Findings Exist
+
+### Resolve P0 Findings First
+
+For each P0 finding, present it with the fix commands:
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "[Finding description]. Should I apply this fix?",
+    "header": "P0 Fix",
+    "options": [
+      {"label": "Apply fix (Recommended)", "description": "[Brief description of the bd commands that will run]"},
+      {"label": "Modify fix", "description": "I want a different approach — let me explain"},
+      {"label": "Skip", "description": "Don't fix this — accept as-is"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+### Then P1 Findings
+
+Present each P1 finding individually. You may batch up to 4 P1 findings
+into a single AskUserQuestion call (one question per finding).
+
+### Then P2 Findings
+
+Present P2 summary and offer a choice:
+
+```
+AskUserQuestion(
+  questions=[{
+    "question": "There are [N] P2 findings. Would you like to address any?",
+    "header": "P2 Items",
+    "options": [
+      {"label": "Skip P2s (Recommended)", "description": "Leave as documented — minor issues only"},
+      {"label": "Show details", "description": "Review each P2 and choose which to fix"},
+      {"label": "Fix all", "description": "Apply all [N] recommended P2 fixes"}
+    ],
+    "multiSelect": false
+  }]
+)
+```
+
+## Apply Fixes
+
+For each finding the user approved:
+
+**Execute the bd commands** from the consolidated report:
+- Create missing beads
+- Add/remove dependencies
+- Update bead content
+- Close unbacked beads
+- Reparent misplaced beads
+
+After each fix, verify it applied correctly:
+```bash
+bd show <affected-id>
+```
+
+## After All Fixes Applied
+
+Run a quick sanity check:
+```bash
+# Verify no cycles introduced
+bd dep cycles
+
+# Check updated ready queue
+bd ready
+
+# Show updated dependency tree
+bd dep tree <root-epic-id>
+```
+
+Report:
+```
+## Fixes Applied
+
+**P0 resolved:** N of N
+**P1 resolved:** N of N
+**P2 resolved:** N of N (or "skipped")
+
+**Beads created:** N
+**Beads updated:** N
+**Beads closed:** N
+**Dependencies added:** N
+**Dependencies removed:** N
+
+**Cycle check:** Clean ✓
+**Updated ready queue:** [N] beads ready to start
+```
+"""
+
+# ============================================================================
+# STEP 5: COMMIT
+# ============================================================================
+
+[[template]]
+id = "{target}.commit"
+title = "Commit review report"
+needs = ["{target}.present-resolve"]
+description = """
+Commit the review report. Beads changes are already persisted in Dolt.
+
+## Files to Commit
+
+- `plans/{{feature}}/04-beads/beads-review.md` — the review report (always)
+- `plans/{{feature}}/03-plan/plan.md` — if plan was updated based on findings
+
+Note: Beads changes (created/updated/closed issues, dependency changes) are
+automatically persisted in the Dolt database. They do NOT need git commits.
+
+## Create the 04-beads Directory (if needed)
+
+```bash
+mkdir -p plans/{{feature}}/04-beads
+```
+
+## Commit Process
+
+1. Stage files:
+   ```bash
+   git add plans/{{feature}}/04-beads/beads-review.md
+   git add plans/{{feature}}/03-plan/plan.md       # if modified
+   ```
+
+2. Create commit:
+   ```bash
+   git commit -m "feat(plans): beads review for {{feature}}
+
+   3-direction review (plan→beads, beads→plan, dependency integrity).
+
+   Findings: [N] P0, [N] P1, [N] P2
+   Resolved: [N] P0, [N] P1
+   Beads created: [N], updated: [N], closed: [N]
+   Dependency waves: [N], max parallel: [N]
+
+   Co-Authored-By: Claude <agent>"
+   ```
+
+3. Push to remote:
+   ```bash
+   git push
+   ```
+
+## Output
+
+Report completion:
+```
+## Beads Review Committed
+
+**Files committed:**
+- plans/{{feature}}/04-beads/beads-review.md
+- plans/{{feature}}/03-plan/plan.md [if updated]
+
+**Review summary:**
+- P0: [N] found, [N] resolved
+- P1: [N] found, [N] resolved
+- P2: [N] found, [N] resolved / skipped
+
+**Beads state:**
+- Total issues: [N]
+- Ready to start: [N]
+- Dependency waves: [N]
+
+**Commit:** [short hash]
+**Pushed to:** origin/[branch]
+
+Ready for implementation (implementing-beads-epic skill).
+```
+"""
