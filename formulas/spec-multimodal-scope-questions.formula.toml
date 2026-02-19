@@ -24,6 +24,35 @@ This gives 9 individual analyses, consolidated into 3 model-specific documents,
 then synthesized into a final prioritized question backlog.
 
 This is a DESIGN pass focused on USER INTENT, not implementation.
+
+## Step Lifecycle (Molecule Work Loop)
+
+This formula runs as a molecule — each step is a wisp bead. Use the
+standard molecule work loop to advance through steps:
+
+```bash
+# 1. Find your current step:
+bd mol current <molecule-id>
+
+# 2. Execute the step (follow its instructions)
+
+# 3. Close the step when done:
+bd close <step-id>
+
+# 4. Find the next step:
+bd mol current <molecule-id>
+
+# 5. Repeat until molecule complete
+```
+
+`bd mol current` returns the next ready step (open + all blocking deps
+closed). Closing a step unblocks the next one in the dependency chain.
+
+**Crash recovery:** Each `bd close` is durable. If your session crashes,
+the next session runs `gt prime` which detects the molecule on your hook
+and shows progress. `bd mol current` picks up at the next unclosed step.
+
+Do NOT batch-close all steps at the end — close each one as you finish it.
 """
 formula = "spec-multimodal-scope-questions"
 type = "workflow"

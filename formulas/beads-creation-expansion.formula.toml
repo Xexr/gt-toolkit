@@ -28,23 +28,6 @@ and produces a fully-structured beads hierarchy:
 
 Uses 3 sequential review passes with fixes applied between each,
 then executes bd commands to create beads.
-"""
-formula = "beads-creation-expansion"
-type = "expansion"
-version = 2
-
-# Note: vars are inherited from the parent workflow that expands this
-# Required vars: feature
-
-# ============================================================================
-# STEP 1: LOAD INPUTS
-# ============================================================================
-
-[[template]]
-id = "{target}.load-inputs"
-title = "Validate inputs"
-description = """
-Validate that all required artifacts exist before drafting beads structure.
 
 ## Step Lifecycle (Molecule Work Loop)
 
@@ -81,13 +64,13 @@ This formula creates beads using `bd` commands. Reference:
 
 ```bash
 # Create an epic (with optional parent)
-bd create "Title" -t epic -p <priority> -d "Description" \
+bd create "Title" -t epic -p <priority> -d "Description" \\
   [--parent <parent-id>]
 
 # Create a task issue (with optional parent and blocker deps)
-bd create "Title" -t task -p <priority> -d "Description" \
-  --acceptance "- [ ] Criterion 1\\n- [ ] Criterion 2" \
-  [--parent <parent-id>] \
+bd create "Title" -t task -p <priority> -d "Description" \\
+  --acceptance "- [ ] Criterion 1\\n- [ ] Criterion 2" \\
+  [--parent <parent-id>] \\
   [--deps "<blocker-id-1>,<blocker-id-2>"]
 
 # --parent: sets parent-child relationship at creation time
@@ -118,6 +101,23 @@ bd close <bead-id>
 ```
 
 Do NOT use `bd start` or `bd progress` — these do not exist.
+"""
+formula = "beads-creation-expansion"
+type = "expansion"
+version = 2
+
+# Note: vars are inherited from the parent workflow that expands this
+# Required vars: feature
+
+# ============================================================================
+# STEP 1: LOAD INPUTS
+# ============================================================================
+
+[[template]]
+id = "{target}.load-inputs"
+title = "Validate inputs"
+description = """
+Validate that all required artifacts exist before drafting beads structure.
 
 ## Required Files
 

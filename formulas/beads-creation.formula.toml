@@ -33,6 +33,79 @@ then sets up an integration branch on the feature epic.
 
 Requires: plans/<feature>/03-plan/plan.md
 Output: beads hierarchy + plans/<feature>/04-beads/beads-{draft,report}.md
+
+## Step Lifecycle (Molecule Work Loop)
+
+This formula runs as a molecule — each step is a wisp bead. Use the
+standard molecule work loop to advance through steps:
+
+```bash
+# 1. Find your current step:
+bd mol current <molecule-id>
+
+# 2. Execute the step (follow its instructions)
+
+# 3. Close the step when done:
+bd close <step-id>
+
+# 4. Find the next step:
+bd mol current <molecule-id>
+
+# 5. Repeat until molecule complete
+```
+
+`bd mol current` returns the next ready step (open + all blocking deps
+closed). Closing a step unblocks the next one in the dependency chain.
+
+**Crash recovery:** Each `bd close` is durable. If your session crashes,
+the next session runs `gt prime` which detects the molecule on your hook
+and shows progress. `bd mol current` picks up at the next unclosed step.
+
+Do NOT batch-close all steps at the end — close each one as you finish it.
+
+## Bead Commands Reference
+
+This formula creates beads using `bd` commands. Reference:
+
+```bash
+# Create an epic (with optional parent)
+bd create "Title" -t epic -p <priority> -d "Description" \\
+  [--parent <parent-id>]
+
+# Create a task issue (with optional parent and blocker deps)
+bd create "Title" -t task -p <priority> -d "Description" \\
+  --acceptance "- [ ] Criterion 1\\n- [ ] Criterion 2" \\
+  [--parent <parent-id>] \\
+  [--deps "<blocker-id-1>,<blocker-id-2>"]
+
+# --parent: sets parent-child relationship at creation time
+# --deps:   specifies blocker dependencies (this task is BLOCKED BY the listed IDs)
+#           default type is "blocks" — no prefix needed
+#           multiple IDs are comma-separated
+
+# Add blocker dependency after creation (if needed)
+# Syntax: bd dep add <blocked-id> <blocker-id>
+# Meaning: <blocked-id> depends on (is blocked by) <blocker-id>
+bd dep add <blocked-id> <blocker-id>
+
+# Add parent-child relationship after creation (if needed)
+# Syntax: bd dep add <parent-id> <child-id> --type parent-child
+bd dep add <parent-id> <child-id> --type parent-child
+
+# Check for dependency cycles
+bd dep cycles
+
+# List items ready to work (no unresolved blockers)
+bd ready
+
+# Show a bead
+bd show <bead-id>
+
+# Close a bead
+bd close <bead-id>
+```
+
+Do NOT use `bd start` or `bd progress` — these do not exist.
 """
 formula = "beads-creation"
 type = "workflow"
