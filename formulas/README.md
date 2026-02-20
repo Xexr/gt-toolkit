@@ -217,13 +217,13 @@ The epic-delivery skill is available in [Xexr/marketplace](https://github.com/Xe
 
 ### spec-workflow
 
-Orchestrates stages 1-4 with a single human gate at the end.
+Orchestrates stages 1-4 sequentially, ending with a summary of all outputs.
 
 ```
-Stage 1: Scope Questions → Stage 2: Brainstorm → Stage 3: Interview → Stage 4: Review → Gate: Final Review
+Stage 1: Scope Questions → Stage 2: Brainstorm → Stage 3: Interview → Stage 4: Review → Summary
 ```
 
-Stages 2 and 3 are interactive (user dialogue), so intermediate gates are unnecessary. The single final gate lets you review the complete picture before marking done.
+Stages 2 and 3 are interactive (user dialogue). Stage 4 presents findings and resolves issues interactively.
 
 **Usage:**
 ```bash
@@ -233,8 +233,6 @@ gt sling spec-workflow <crew> \
 ```
 
 **Vars:** `feature`, `brief`
-
-Approve the final gate with `bd gate resolve <gate-id>`.
 
 ### plan-workflow
 

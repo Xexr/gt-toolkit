@@ -6,7 +6,6 @@
 #   Step 3: Questions interview (completeness check + fresh assessment)
 #   Step 4: Multimodal review (3-model parallel review)
 #
-# Single human gate after multimodal review, before marking complete.
 # Uses expansion composition to inline all workflow steps.
 #
 # Usage:
@@ -17,17 +16,14 @@
 description = """
 Complete spec workflow from idea to reviewed design document.
 
-Orchestrates 4 steps with a single human gate at the end:
+Orchestrates 4 steps:
 1. **Multimodal Scope Questions** - 3x3 matrix surfaces blind spots
 2. **Brainstorm** - Smart dialogue turns questions into validated spec
 3. **Questions Interview** - Completeness check + fresh eyes assessment
 4. **Multimodal Review** - 3-model parallel review catches gaps
 
-Steps 2 and 3 are interactive (user dialogue), so intermediate gates
-are unnecessary. The single final gate lets you review the complete
-picture before marking done.
-
-Use `bd gate resolve <gate-id>` to approve and complete.
+Steps 2 and 3 are interactive (user dialogue). Step 4 presents findings
+and resolves issues interactively. Ends with a summary of all outputs.
 
 Output: Fully reviewed spec at plans/{{feature}}/02-spec/spec.md
 
@@ -62,7 +58,7 @@ Do NOT batch-close all steps at the end — close each one as you finish it.
 """
 formula = "spec-workflow"
 type = "workflow"
-version = 4
+version = 5
 
 [vars]
 [vars.feature]
@@ -167,40 +163,13 @@ This step is expanded into the full multimodal review workflow:
 """
 
 # ============================================================================
-# GATE: Final review before marking complete
-# ============================================================================
-
-[[steps]]
-id = "gate-final"
-title = "Gate: Final Review"
-needs = ["step-4-multimodal-review"]
-gate = { type = "human" }
-description = """
-Human gate: Final review before marking spec workflow complete.
-
-**Review:**
-- plans/{{feature}}/02-spec/spec.md (final version)
-- plans/{{feature}}/02-spec/spec-review.md (review findings)
-
-**Check:**
-- All critical/high issues addressed?
-- Spec is clear and implementable?
-- Ready for implementation planning?
-
-**To approve and complete:**
-```bash
-bd gate resolve <this-gate-id>
-```
-"""
-
-# ============================================================================
 # COMPLETE: Summary
 # ============================================================================
 
 [[steps]]
 id = "complete"
 title = "Workflow Complete"
-needs = ["gate-final"]
+needs = ["step-4-multimodal-review"]
 description = """
 Spec workflow is complete.
 
@@ -217,9 +186,8 @@ Spec workflow is complete.
 - plans/{{feature}}/01-scope/question-triage.md (triage record)
 
 **Next steps:**
-- Implementation planning (break into epics/tasks)
-- Conversion to beads issues (design-to-beads skill)
-- Convoy execution
+- Run plan-workflow to produce implementation plan and beads hierarchy
+- Run epic-delivery to execute via polecats
 """
 
 # ============================================================================
