@@ -6,7 +6,7 @@ A collection of formulas, configurations, workflow documents, and other useful r
 
 | Directory | Contents |
 |-----------|----------|
-| `formulas/` | `.formula.toml` files — spec pipeline and plan writing formulas for `gt sling` |
+| `formulas/` | `.formula.toml` files — spec pipeline and plan writing formulas for `gt sling`. Includes wrapper formulas required until [beads#1903](https://github.com/steveyegge/beads/pull/1903) lands. See [formulas/README.md](formulas/README.md) for details. |
 | `configs/` | Example configuration files and templates |
 | `docs/` | Workflow guides, tips, and reference material |
 

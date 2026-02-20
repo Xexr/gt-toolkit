@@ -1,6 +1,6 @@
 # Formulas
 
-Design and planning formulas for the `gt sling` pipeline. These take a feature from initial idea through to a fully reviewed design spec, then into a detailed implementation plan.
+Design and planning formulas for the `gt sling` pipeline. These take a feature from initial idea through to a fully reviewed design spec, a detailed implementation plan, and a comprehensive beads issue hierarchy ready for execution.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ The formulas follow an **expansion/wrapper pattern**:
 
 - **Expansion formulas** (`*-expansion.formula.toml`) contain the actual multi-step logic. They use `type = "expansion"` and define `[[template]]` steps with `{target}` placeholders, allowing them to be composed into larger workflows.
 
-- **Wrapper formulas** are thin standalone entrypoints that expand a single expansion formula into a runnable workflow. They define a placeholder `[[steps]]` block and use `[compose] [[compose.expand]]` to inline the expansion. Use these when you want to run one stage of the pipeline in isolation.
+- **Wrapper formulas** are thin standalone entrypoints that expand a single expansion formula into a runnable workflow. They define a placeholder `[[steps]]` block and use `[compose] [[compose.expand]]` to inline the expansion. Use these when you want to run one stage of the pipeline in isolation. **Note:** Wrappers exist only because `bd mol wisp` cannot currently run expansion formulas directly — `{target}` placeholders go unresolved, producing an empty epic. [beads#1903](https://github.com/steveyegge/beads/pull/1903) adds standalone expansion support, after which these wrappers become unnecessary and should be removed.
 
 - **spec-workflow** is the orchestrator that composes all four spec expansions into a single end-to-end pipeline with a human gate at the end.
 
@@ -150,6 +150,8 @@ Verifies the plan fully addresses the spec and aligns with codebase analysis usi
 
 ## Standalone Wrappers
 
+> **Temporary scaffolding.** These wrappers exist because expansion formulas cannot be run directly by `bd mol wisp` today — `{target}` placeholders are left unresolved, producing an empty epic with no child steps. [beads#1903](https://github.com/steveyegge/beads/pull/1903) adds standalone expansion support. Once merged, these wrappers become unnecessary and should be removed.
+
 These formulas are thin wrappers that let you run a single pipeline stage in isolation. They each define one placeholder step and use `[compose]` to expand the corresponding expansion formula. No additional logic beyond what the expansion provides.
 
 | Wrapper | Expands | Use when... |
@@ -164,6 +166,8 @@ These formulas are thin wrappers that let you run a single pipeline stage in iso
 ---
 
 ## Orchestrator
+
+> **Known issue.** Combined workflow formulas (`spec-workflow`, `plan-workflow`) that chain multiple expansions currently suffer from lost cross-expansion dependencies — the first step of each expansion starts with empty `needs` instead of depending on the previous expansion's final step. This causes out-of-order execution. [beads#1901](https://github.com/steveyegge/beads/pull/1901) fixes dependency propagation during expansion. Until merged, multi-expansion orchestrators will not sequence correctly.
 
 ### spec-workflow
 
@@ -205,3 +209,7 @@ gt sling plan-writing <crew> \
 gt sling plan-review-to-spec <crew> \
   --var feature="command-palette"
 ```
+
+## What comes next
+
+Once you have a reviewed plan, use the **epic-delivery** skill to convert it into beads issues and execute them via polecats. The skill is available in [Xexr/marketplace](https://github.com/Xexr/marketplace).
