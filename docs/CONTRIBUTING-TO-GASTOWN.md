@@ -658,6 +658,52 @@ Examples from recent PRs:
 - `fix(shell): use detected shell RC path in activation message`
 - `feat(doctor): distinguish fixed vs unfixed in --fix output`
 
+## Design Philosophy
+
+Gas Town follows two core principles that shape every contribution. Understanding
+these will save you (and reviewers) time.
+
+### Zero Framework Cognition (ZFC)
+
+**Go provides transport. Agents provide cognition.**
+
+Gas Town's Go code handles plumbing: tmux sessions, message delivery, hooks,
+nudges, file transport, and observability primitives (like `bd show --json`).
+All reasoning, judgment calls, and decision-making happen in the AI agents via
+molecule formulas and role templates.
+
+This means:
+- **No hardcoded thresholds in Go.** Don't write `if age > 5*time.Minute`
+  to decide if an agent is stuck. Expose the age as data and let the agent decide.
+- **No heuristics in Go.** Don't write detection logic that pattern-matches
+  agent behavior. Give agents the tools to observe, and let them reason.
+- **Formulas over subcommands.** If the feature is "detect X and do Y," it's
+  probably a molecule step, not a new `gt` subcommand.
+
+**The test:** Before adding Go code, ask yourself — *"Am I adding transport or
+cognition?"* If the answer is cognition, it should be a molecule step or
+formula instruction instead.
+
+For the full rationale, see
+[Zero Framework Cognition](https://steve-yegge.medium.com/zero-framework-cognition-a-way-to-build-resilient-ai-applications-56b090ed3e69).
+
+### Bitter Lesson Alignment
+
+Gas Town bets on models getting smarter, not on hand-crafted heuristics getting
+more elaborate. If an AI agent can observe data and reason about it, we expose
+the data (transport) rather than encoding the reasoning (cognition). Today's
+clumsy heuristic is tomorrow's technical debt — but a clean observability
+primitive ages well.
+
+**Examples:**
+
+| Good (transport) | Bad (cognition in Go) |
+|---|---|
+| `gt nudge <session> "message"` | Go code deciding *when* to nudge |
+| `bd show --json` exposing step status | Go code deciding *what* step status means |
+| `tmux has-session` checking liveness | Go code with hardcoded "stuck after N minutes" |
+
+
 ---
 
 ## Quick Reference
