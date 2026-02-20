@@ -478,7 +478,7 @@ Based on what you've described, here are three ways we could build this:
 - Tradeoff: Users must understand the linkage model
 
 **Approach C: Smart Templates**
-- Include variables like {{client_name}}, {{due_date}}
+- Include variables like <client_name>, <due_date>
 - Prompt for values when applying
 - Most flexible but most complex
 - Tradeoff: Significant UX complexity

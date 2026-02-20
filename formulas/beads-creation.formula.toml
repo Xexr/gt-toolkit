@@ -89,8 +89,8 @@ bd create "Title" -t task -p <priority> -d "Description" \\
 bd dep add <blocked-id> <blocker-id>
 
 # Add parent-child relationship after creation (if needed)
-# Syntax: bd dep add <parent-id> <child-id> --type parent-child
-bd dep add <parent-id> <child-id> --type parent-child
+# Syntax: bd dep add <child-id> <parent-id> --type parent-child
+bd dep add <child-id> <parent-id> --type parent-child
 
 # Check for dependency cycles
 bd dep cycles
