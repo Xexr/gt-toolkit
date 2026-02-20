@@ -298,12 +298,25 @@ gt sling beads-workflow <crew> \
 Or run each stage individually (required until [beads#1901](https://github.com/steveyegge/beads/pull/1901) is merged):
 
 ```bash
-# Stages 1-4: Spec (as a single workflow)
-gt sling spec-workflow <crew> \
+# Stage 1: Multimodal scope questions
+gt sling spec-multimodal-scope-questions <crew> \
   --var feature="command-palette" \
   --var brief="Add a keyboard-centric command palette for power users..."
 
-# Stage 5: Plan
+# Stage 2: Brainstorm
+gt sling spec-brainstorm <crew> \
+  --var feature="command-palette" \
+  --var brief="Add a keyboard-centric command palette for power users..."
+
+# Stage 3: Questions interview
+gt sling spec-questions-interview <crew> \
+  --var feature="command-palette"
+
+# Stage 4: Multimodal review
+gt sling spec-multimodal-review <crew> \
+  --var feature="command-palette"
+
+# Stage 5: Plan writing
 gt sling plan-writing <crew> \
   --var feature="command-palette" \
   --var brief="Add a keyboard-centric command palette for power users..."
