@@ -10,7 +10,7 @@ The formulas follow an **expansion/wrapper pattern**:
 
 - **Wrapper formulas** are thin standalone entrypoints that expand a single expansion formula into a runnable workflow. They define a placeholder `[[steps]]` block and use `[compose] [[compose.expand]]` to inline the expansion. Use these when you want to run one stage of the pipeline in isolation.
 
-- **Workflow formulas** (`spec-workflow`, `plan-workflow`) are orchestrators that compose multiple expansion formulas into end-to-end pipelines with dependency chains between stages.
+- **Workflow formulas** (`spec-workflow`, `plan-workflow`, `beads-workflow`) are orchestrators that compose multiple expansion formulas into end-to-end pipelines with dependency chains between stages.
 
 ## The Pipeline
 
@@ -236,13 +236,13 @@ gt sling spec-workflow <crew> \
 
 ### plan-workflow
 
-Orchestrates stages 5-8: from reviewed spec to verified beads hierarchy.
+Orchestrates stages 5-6: from reviewed spec to reviewed implementation plan.
 
 ```
-Stage 5: Plan Writing → Stage 6: Plan Review → Stage 7: Beads Creation → Stage 8: Beads Review
+Stage 5: Plan Writing → Stage 6: Plan Review
 ```
 
-Steps 5 and 7 are interactive (user dialogue for architectural and granularity decisions). Steps 6 and 8 auto-apply restorative fixes and only escalate genuine ambiguities.
+Step 5 is interactive (user dialogue for architectural decisions). Step 6 auto-applies restorative fixes and only escalates genuine ambiguities.
 
 **Usage:**
 ```bash
@@ -255,6 +255,26 @@ gt sling plan-workflow <crew> \
 
 **Prerequisite:** Completed spec at `plans/{feature}/02-spec/spec.md` (from `spec-workflow`).
 
+### beads-workflow
+
+Orchestrates stages 7-8: from reviewed plan to verified beads hierarchy.
+
+```
+Stage 7: Beads Creation → Stage 8: Beads Review
+```
+
+Step 7 is interactive (user dialogue for granularity decisions). Step 8 auto-applies restorative fixes and only escalates genuine ambiguities.
+
+**Usage:**
+```bash
+gt sling beads-workflow <crew> \
+  --var feature="command-palette"
+```
+
+**Vars:** `feature`
+
+**Prerequisite:** Reviewed plan at `plans/{feature}/03-plan/plan.md` (from `plan-workflow`).
+
 ### Full Pipeline
 
 To run the complete pipeline from idea to reviewed beads:
@@ -265,16 +285,20 @@ gt sling spec-workflow <crew> \
   --var feature="command-palette" \
   --var brief="Add a keyboard-centric command palette for power users..."
 
-# Stages 5-8: Plan + beads pipeline (after spec is reviewed and approved)
+# Stages 5-6: Plan pipeline (after spec is reviewed)
 gt sling plan-workflow <crew> \
   --var feature="command-palette" \
   --var brief="Add a keyboard-centric command palette for power users..."
+
+# Stages 7-8: Beads pipeline (after plan is reviewed)
+gt sling beads-workflow <crew> \
+  --var feature="command-palette"
 ```
 
 Or run each stage individually (required until [beads#1901](https://github.com/steveyegge/beads/pull/1901) is merged):
 
 ```bash
-# Stage 1-4: Spec (as a single workflow)
+# Stages 1-4: Spec (as a single workflow)
 gt sling spec-workflow <crew> \
   --var feature="command-palette" \
   --var brief="Add a keyboard-centric command palette for power users..."

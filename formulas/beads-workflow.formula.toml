@@ -1,8 +1,8 @@
-# Plan Workflow Formula
+# Beads Workflow Formula
 #
-# Plan pipeline from spec to reviewed implementation plan in 2 steps:
-#   Step 1: Plan writing (spec → implementation plan)
-#   Step 2: Plan review to spec (3-agent bidirectional review)
+# Beads pipeline from reviewed plan to verified beads hierarchy in 2 steps:
+#   Step 1: Beads creation (plan → beads epic with dependency graph)
+#   Step 2: Beads review to plan (3-agent bidirectional review)
 #
 # Uses expansion composition to inline all workflow steps.
 #
@@ -11,27 +11,26 @@
 # cooking and may execute out of order.
 #
 # Usage:
-#   gt sling plan-workflow <crew> \
-#     --var feature="command-palette" \
-#     --var brief="Add a keyboard-centric command palette for power users..."
+#   gt sling beads-workflow <crew> \
+#     --var feature="command-palette"
 
 description = """
-Plan workflow from spec to reviewed implementation plan.
+Beads workflow from reviewed plan to verified beads hierarchy.
 
 Orchestrates 2 steps:
-1. **Plan Writing** - Spec → phased implementation plan with dependency graph
-2. **Plan Review to Spec** - 3-agent bidirectional review (plan↔spec alignment)
+1. **Beads Creation** - Plan → beads epic with tasks and dependencies
+2. **Beads Review to Plan** - 3-agent bidirectional review (beads↔plan alignment)
 
-Step 1 is interactive (user dialogue for architectural decisions). Step 2
+Step 1 is interactive (user dialogue for granularity decisions). Step 2
 auto-applies restorative fixes and only escalates genuine ambiguities.
 
-**Requires:** Completed spec at plans/{{feature}}/02-spec/spec.md
-**Output:** Reviewed plan at plans/{{feature}}/03-plan/plan.md
+**Requires:** Reviewed plan at plans/{{feature}}/03-plan/plan.md
+**Output:** Verified beads hierarchy ready for implementation
 
 **NOTE:** Blocked by beads#1901 (cross-expansion dependency loss). Until that
 fix lands, use the 2 formulas individually in sequence:
-  gt sling plan-writing <crew> --var feature="..." --var brief="..."
-  gt sling plan-review-to-spec <crew> --var feature="..."
+  gt sling beads-creation <crew> --var feature="..."
+  gt sling beads-review-to-plan <crew> --var feature="..."
 
 ## Step Lifecycle (Molecule Work Loop)
 
@@ -62,67 +61,65 @@ and shows progress. `bd mol current` picks up at the next unclosed step.
 
 Do NOT batch-close all steps at the end — close each one as you finish it.
 """
-formula = "plan-workflow"
+formula = "beads-workflow"
 type = "workflow"
-version = 2
+version = 1
 
 [vars]
 [vars.feature]
 description = "Feature name (used for all input/output paths)"
 required = true
 
-[vars.brief]
-description = "Brief description of the feature for plan-writing context"
-required = true
-
 # ============================================================================
-# STEP 1: PLAN WRITING (expanded from plan-writing-expansion)
+# STEP 1: BEADS CREATION (expanded from beads-creation-expansion)
 # ============================================================================
 
 [[steps]]
-id = "step-1-plan-writing"
-title = "Step 1: Plan Writing"
+id = "step-1-beads-creation"
+title = "Step 1: Beads Creation"
 description = """
-Transform the reviewed spec into a phased implementation plan.
+Convert the reviewed plan into a beads epic with tasks and dependencies.
 
-This step is expanded into the full plan-writing workflow:
-1. Load spec and codebase context
-2. Draft plan with phases, tasks, dependencies, and file paths
-3. Interactive review with user for scope/approach decisions
-4. Finalize and commit plan
+This step is expanded into the full beads-creation workflow:
+1. Load plan and extract phases/tasks
+2. Draft beads structure (epics, tasks, dependencies)
+3. Interactive review with user for granularity/scope decisions
+4. Create beads via bd commands
+5. Verify dependency graph integrity
+6. Commit summary
 
-**Interactive:** Involves dialogue for architectural decisions.
-
-**Requires:** plans/{{feature}}/02-spec/spec.md (from spec-workflow)
+**Interactive:** Involves dialogue for granularity decisions.
 
 **Outputs:**
-- plans/{{feature}}/03-plan/plan.md
+- Beads epic with phase sub-epics and task issues
+- Dependency graph matching plan phasing
+- plans/{{feature}}/04-beads/ directory
 """
 
 # ============================================================================
-# STEP 2: PLAN REVIEW TO SPEC (expanded from plan-review-to-spec-expansion)
+# STEP 2: BEADS REVIEW TO PLAN (expanded from beads-review-to-plan-expansion)
 # ============================================================================
 
 [[steps]]
-id = "step-2-plan-review"
-title = "Step 2: Plan Review to Spec"
-needs = ["step-1-plan-writing"]
+id = "step-2-beads-review"
+title = "Step 2: Beads Review to Plan"
+needs = ["step-1-beads-creation"]
 description = """
-3-agent bidirectional review checking plan↔spec alignment.
+3-agent bidirectional review checking beads↔plan alignment.
 
 This step is expanded into the full review workflow:
-1. Validate inputs (plan and spec exist)
+1. Validate inputs and snapshot beads state
 2. Dispatch 3 parallel Sonnet agents:
-   - Forward: spec → plan coverage (every spec requirement has a plan task)
-   - Reverse: plan → spec traceability (every plan task traces to the spec)
-   - Context: plan aligns with codebase reality
+   - Forward: plan → beads coverage (every plan task has a matching bead)
+   - Reverse: beads → plan traceability (every bead traces to the plan)
+   - Dependencies: graph integrity matches plan phasing
 3. Consolidate findings with cross-referencing
 4. Auto-apply restorative fixes, escalate ambiguities
 5. Commit review report
 
 **Outputs:**
-- plans/{{feature}}/03-plan/plan-review.md
-- Updated plans/{{feature}}/03-plan/plan.md (if fixes applied)
+- plans/{{feature}}/04-beads/beads-review.md
+- Updated beads (dependencies, acceptance criteria, content)
 """
 
 # ============================================================================
@@ -132,9 +129,9 @@ This step is expanded into the full review workflow:
 [compose]
 
 [[compose.expand]]
-target = "step-1-plan-writing"
-with = "plan-writing-expansion"
+target = "step-1-beads-creation"
+with = "beads-creation-expansion"
 
 [[compose.expand]]
-target = "step-2-plan-review"
-with = "plan-review-to-spec-expansion"
+target = "step-2-beads-review"
+with = "beads-review-to-plan-expansion"
