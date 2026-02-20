@@ -8,17 +8,17 @@ The formulas follow an **expansion/wrapper pattern**:
 
 - **Expansion formulas** (`*-expansion.formula.toml`) contain the actual multi-step logic. They use `type = "expansion"` and define `[[template]]` steps with `{target}` placeholders, allowing them to be composed into larger workflows.
 
-- **Wrapper formulas** are thin standalone entrypoints that expand a single expansion formula into a runnable workflow. They define a placeholder `[[steps]]` block and use `[compose] [[compose.expand]]` to inline the expansion. Use these when you want to run one stage of the pipeline in isolation. **Note:** Wrappers exist only because `bd mol wisp` cannot currently run expansion formulas directly — `{target}` placeholders go unresolved, producing an empty epic. [beads#1903](https://github.com/steveyegge/beads/pull/1903) adds standalone expansion support, after which these wrappers become unnecessary and should be removed.
+- **Wrapper formulas** are thin standalone entrypoints that expand a single expansion formula into a runnable workflow. They define a placeholder `[[steps]]` block and use `[compose] [[compose.expand]]` to inline the expansion. Use these when you want to run one stage of the pipeline in isolation.
 
-- **spec-workflow** is the orchestrator that composes all four spec expansions into a single end-to-end pipeline with a human gate at the end.
-
-- **plan-writing** converts a reviewed spec into an implementation plan via deep codebase analysis (3 parallel agents) and structured plan generation.
+- **Workflow formulas** (`spec-workflow`, `plan-workflow`) are orchestrators that compose multiple expansion formulas into end-to-end pipelines with dependency chains between stages.
 
 ## The Pipeline
 
-The full spec pipeline runs four stages sequentially. Each stage can also be run standalone via its wrapper formula.
+The full pipeline runs 8 stages across three phases: spec, plan, and beads. Each stage can be run standalone via its wrapper formula, or as part of a workflow.
 
-### Stage 1: Multimodal Scope Questions
+### Spec (Stages 1-4)
+
+#### Stage 1: Multimodal Scope Questions
 
 **Formula:** `spec-multimodal-scope-questions-expansion`
 
@@ -36,7 +36,7 @@ Surfaces design blind spots using a 3x3 matrix of models (Opus, GPT, Gemini) and
 
 ---
 
-### Stage 2: Brainstorm
+#### Stage 2: Brainstorm
 
 **Formula:** `spec-brainstorm-expansion`
 
@@ -57,7 +57,7 @@ Turns scope questions into a validated design spec through structured dialogue.
 
 ---
 
-### Stage 3: Questions Interview
+#### Stage 3: Questions Interview
 
 **Formula:** `spec-questions-interview-expansion`
 
@@ -76,7 +76,7 @@ Reviews the spec for completeness with a two-pass approach.
 
 ---
 
-### Stage 4: Multimodal Review
+#### Stage 4: Multimodal Review
 
 **Formula:** `spec-multimodal-review-expansion`
 
@@ -96,9 +96,9 @@ Final quality gate using 3 models in parallel across 12 review categories.
 
 ---
 
-## Plan Writing
+### Plan (Stages 5-6)
 
-### Stage 5: Implementation Plan
+#### Stage 5: Implementation Plan
 
 **Formula:** `plan-writing-expansion`
 
@@ -119,7 +119,7 @@ Converts a reviewed spec into a comprehensive implementation plan by running dee
 
 ---
 
-### Stage 6: Plan Review
+#### Stage 6: Plan Review
 
 **Formula:** `plan-review-to-spec-expansion`
 
@@ -148,33 +148,65 @@ Verifies the plan fully addresses the spec and aligns with codebase analysis usi
 
 ---
 
-## Standalone Wrappers
+### Beads (Stages 7-8)
 
-> **Temporary scaffolding.** These wrappers exist because expansion formulas cannot be run directly by `bd mol wisp` today — `{target}` placeholders are left unresolved, producing an empty epic with no child steps. [beads#1903](https://github.com/steveyegge/beads/pull/1903) adds standalone expansion support. Once merged, these wrappers become unnecessary and should be removed.
+#### Stage 7: Beads Creation
 
-These formulas are thin wrappers that let you run a single pipeline stage in isolation. They each define one placeholder step and use `[compose]` to expand the corresponding expansion formula. No additional logic beyond what the expansion provides.
+**Formula:** `beads-creation-expansion`
 
-| Wrapper | Expands | Use when... |
-|---------|---------|-------------|
-| `spec-multimodal-scope-questions` | `spec-multimodal-scope-questions-expansion` | You want scope questions without continuing to brainstorm |
-| `spec-brainstorm` | `spec-brainstorm-expansion` | You want to brainstorm a spec (with or without prior scope questions) |
-| `spec-questions-interview` | `spec-questions-interview-expansion` | You have a spec and want a completeness review |
-| `spec-multimodal-review` | `spec-multimodal-review-expansion` | You have a spec and want multi-model review |
-| `plan-writing` | `plan-writing-expansion` | You have a reviewed spec and want an implementation plan |
-| `plan-review-to-spec` | `plan-review-to-spec-expansion` | You have a plan and want to verify it covers the spec |
+Converts the reviewed implementation plan into a fully-structured beads hierarchy with validated dependencies for maximum parallelization.
+
+**Steps:**
+1. Validate inputs — confirm plan and plan-review exist
+2. Draft beads structure — feature epic, phase sub-epics, task issues with acceptance criteria
+3. Review pass 1: Completeness — every plan task has a corresponding bead
+4. Review pass 2: Dependencies — blockers are real, parallelism is maximized
+5. Review pass 3: Clarity — each issue is implementable by a fresh agent
+6. Execute — create beads via `bd` commands with `--parent` and `--deps` flags
+7. Report and commit
+
+**Outputs:** Beads hierarchy (feature epic → phase sub-epics → task issues) plus `plans/{feature}/04-beads/beads-draft.md` and `plans/{feature}/04-beads/beads-report.md`
+
+**Vars:** `feature`
+
+**Prerequisite:** Run `plan-writing` and `plan-review-to-spec` first.
 
 ---
 
-## Orchestrator
+#### Stage 8: Beads Review to Plan
 
-> **Known issue.** Combined workflow formulas (`spec-workflow`, `plan-workflow`) that chain multiple expansions currently suffer from lost cross-expansion dependencies — the first step of each expansion starts with empty `needs` instead of depending on the previous expansion's final step. This causes out-of-order execution. [beads#1901](https://github.com/steveyegge/beads/pull/1901) fixes dependency propagation during expansion. Until merged, multi-expansion orchestrators will not sequence correctly.
+**Formula:** `beads-review-to-plan-expansion`
+
+Verifies that created beads issues accurately represent the implementation plan using 3 parallel review agents with bidirectional coverage checking.
+
+**Steps:**
+1. Validate inputs — confirm plan exists and snapshot beads state
+2. Parallel review — 3 agents:
+   - Plan→Beads (forward): Does every plan task have a corresponding bead with matching content?
+   - Beads→Plan (reverse): Does every bead trace back to a plan task? Catches conversion scope creep.
+   - Dependency integrity: Does the beads dependency graph match the plan's phasing and prerequisites?
+3. Consolidate findings with cross-referencing and severity ranking
+4. Present & resolve — auto-apply restorative fixes, escalate genuine ambiguities
+5. Commit review report and any updates
+
+**Outputs:** `plans/{feature}/04-beads/beads-review.md`, updated beads (dependencies, acceptance criteria, content)
+
+**Vars:** `feature`
+
+**Prerequisite:** Run `beads-creation` first.
+
+---
+
+## Workflow Formulas
+
+> **Known issue.** Combined workflow formulas that chain multiple expansions currently suffer from lost cross-expansion dependencies — the first step of each expansion starts with empty `needs` instead of depending on the previous expansion's final step. This causes out-of-order execution. [beads#1901](https://github.com/steveyegge/beads/pull/1901) fixes dependency propagation during expansion. Until merged, multi-expansion orchestrators will not sequence correctly — use individual formulas in sequence instead.
 
 ### spec-workflow
 
-The full spec pipeline. Composes all four expansion formulas sequentially with dependency chains between steps and a single human gate at the end.
+Orchestrates stages 1-4 with a single human gate at the end.
 
 ```
-Stage 1: Scope Questions --> Stage 2: Brainstorm --> Stage 3: Interview --> Stage 4: Review --> Gate: Final Review
+Stage 1: Scope Questions → Stage 2: Brainstorm → Stage 3: Interview → Stage 4: Review → Gate: Final Review
 ```
 
 Stages 2 and 3 are interactive (user dialogue), so intermediate gates are unnecessary. The single final gate lets you review the complete picture before marking done.
@@ -190,26 +222,90 @@ gt sling spec-workflow <crew> \
 
 Approve the final gate with `bd gate resolve <gate-id>`.
 
-### Full Pipeline (spec + plan + review)
+### plan-workflow
 
-To run the complete pipeline from spec through plan review:
+Orchestrates stages 5-8: from reviewed spec to verified beads hierarchy.
+
+```
+Stage 5: Plan Writing → Stage 6: Plan Review → Stage 7: Beads Creation → Stage 8: Beads Review
+```
+
+Steps 5 and 7 are interactive (user dialogue for architectural and granularity decisions). Steps 6 and 8 auto-apply restorative fixes and only escalate genuine ambiguities.
+
+**Usage:**
+```bash
+gt sling plan-workflow <crew> \
+  --var feature="command-palette" \
+  --var brief="Add a keyboard-centric command palette for power users..."
+```
+
+**Vars:** `feature`, `brief`
+
+**Prerequisite:** Completed spec at `plans/{feature}/02-spec/spec.md` (from `spec-workflow`).
+
+### Full Pipeline
+
+To run the complete pipeline from idea to reviewed beads:
 
 ```bash
-# Stage 1-4: Spec pipeline
+# Stages 1-4: Spec pipeline
 gt sling spec-workflow <crew> \
   --var feature="command-palette" \
   --var brief="Add a keyboard-centric command palette for power users..."
 
-# Stage 5: Plan (after spec is reviewed and approved)
+# Stages 5-8: Plan + beads pipeline (after spec is reviewed and approved)
+gt sling plan-workflow <crew> \
+  --var feature="command-palette" \
+  --var brief="Add a keyboard-centric command palette for power users..."
+```
+
+Or run each stage individually (required until [beads#1901](https://github.com/steveyegge/beads/pull/1901) is merged):
+
+```bash
+# Stage 1-4: Spec (as a single workflow)
+gt sling spec-workflow <crew> \
+  --var feature="command-palette" \
+  --var brief="Add a keyboard-centric command palette for power users..."
+
+# Stage 5: Plan
 gt sling plan-writing <crew> \
   --var feature="command-palette" \
   --var brief="Add a keyboard-centric command palette for power users..."
 
-# Stage 6: Plan review (verify plan covers the spec)
+# Stage 6: Plan review
 gt sling plan-review-to-spec <crew> \
+  --var feature="command-palette"
+
+# Stage 7: Beads creation
+gt sling beads-creation <crew> \
+  --var feature="command-palette"
+
+# Stage 8: Beads review
+gt sling beads-review-to-plan <crew> \
   --var feature="command-palette"
 ```
 
+---
+
+## Standalone Wrappers
+
+> **Temporary scaffolding.** These wrappers exist because expansion formulas cannot be run directly by `bd mol wisp` today — `{target}` placeholders are left unresolved, producing an empty epic with no child steps. [beads#1903](https://github.com/steveyegge/beads/pull/1903) adds standalone expansion support. Once merged, these wrappers become unnecessary and should be removed.
+
+These formulas are thin wrappers that let you run a single pipeline stage in isolation. They each define one placeholder step and use `[compose]` to expand the corresponding expansion formula. No additional logic beyond what the expansion provides.
+
+| Wrapper | Expands | Use when... |
+|---------|---------|-------------|
+| `spec-multimodal-scope-questions` | `spec-multimodal-scope-questions-expansion` | You want scope questions without continuing to brainstorm |
+| `spec-brainstorm` | `spec-brainstorm-expansion` | You want to brainstorm a spec (with or without prior scope questions) |
+| `spec-questions-interview` | `spec-questions-interview-expansion` | You have a spec and want a completeness review |
+| `spec-multimodal-review` | `spec-multimodal-review-expansion` | You have a spec and want multi-model review |
+| `plan-writing` | `plan-writing-expansion` | You have a reviewed spec and want an implementation plan |
+| `plan-review-to-spec` | `plan-review-to-spec-expansion` | You have a plan and want to verify it covers the spec |
+| `beads-creation` | `beads-creation-expansion` | You have a reviewed plan and want to create beads |
+| `beads-review-to-plan` | `beads-review-to-plan-expansion` | You have beads and want to verify they match the plan |
+
+---
+
 ## What comes next
 
-Once you have a reviewed plan, use the **epic-delivery** skill to convert it into beads issues and execute them via polecats. The skill is available in [Xexr/marketplace](https://github.com/Xexr/marketplace).
+Once you have a reviewed beads hierarchy, use the **epic-delivery** skill to execute the work via polecats. The skill is available in [Xexr/marketplace](https://github.com/Xexr/marketplace).
