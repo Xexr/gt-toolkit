@@ -197,6 +197,20 @@ Verifies that created beads issues accurately represent the implementation plan 
 
 ---
 
+### Execution (Stage 9)
+
+#### Stage 9: Epic Delivery
+
+With a reviewed beads hierarchy in place — a feature epic, phase sub-epics, task issues with acceptance criteria, and a validated dependency graph — the final stage is implementation.
+
+The **epic-delivery** skill in [Gas Town](https://github.com/steveyegge/gastown) takes the beads hierarchy produced by stages 7-8 and executes it in a swarm-style fashion: it sets up an integration branch, creates a convoy, then dispatches waves of leaf tasks to polecats in parallel, respecting the dependency graph so blocked work waits while independent tasks run concurrently. Progress is monitored, quality gates are enforced, and completeness is validated against the original plan.
+
+This is not a formula — it's a Claude Code skill that orchestrates the Gas Town machinery (polecats, convoys, the refinery merge queue) to turn your beads into landed code.
+
+The epic-delivery skill is available in [Xexr/marketplace](https://github.com/Xexr/marketplace).
+
+---
+
 ## Workflow Formulas
 
 > **Known issue.** Combined workflow formulas that chain multiple expansions currently suffer from lost cross-expansion dependencies — the first step of each expansion starts with empty `needs` instead of depending on the previous expansion's final step. This causes out-of-order execution. [beads#1901](https://github.com/steveyegge/beads/pull/1901) fixes dependency propagation during expansion. Until merged, multi-expansion orchestrators will not sequence correctly — use individual formulas in sequence instead.
@@ -304,14 +318,3 @@ These formulas are thin wrappers that let you run a single pipeline stage in iso
 | `beads-creation` | `beads-creation-expansion` | You have a reviewed plan and want to create beads |
 | `beads-review-to-plan` | `beads-review-to-plan-expansion` | You have beads and want to verify they match the plan |
 
----
-
-## Stage 9: Execution (epic-delivery)
-
-With a reviewed beads hierarchy in place — a feature epic, phase sub-epics, task issues with acceptance criteria, and a validated dependency graph — the final stage is implementation.
-
-The **epic-delivery** skill in [Gas Town](https://github.com/steveyegge/gastown) takes the beads hierarchy produced by stages 7-8 and executes it in a swarm-style fashion: it sets up an integration branch, creates a convoy, then dispatches waves of leaf tasks to polecats in parallel, respecting the dependency graph so blocked work waits while independent tasks run concurrently. Progress is monitored, quality gates are enforced, and completeness is validated against the original plan.
-
-This is not a formula — it's a Claude Code skill that orchestrates the Gas Town machinery (polecats, convoys, the refinery merge queue) to turn your beads into landed code.
-
-The epic-delivery skill is available in [Xexr/marketplace](https://github.com/Xexr/marketplace).
