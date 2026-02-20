@@ -306,6 +306,12 @@ These formulas are thin wrappers that let you run a single pipeline stage in iso
 
 ---
 
-## What comes next
+## Stage 9: Execution (epic-delivery)
 
-Once you have a reviewed beads hierarchy, use the **epic-delivery** skill to execute the work via polecats. The skill is available in [Xexr/marketplace](https://github.com/Xexr/marketplace).
+With a reviewed beads hierarchy in place — a feature epic, phase sub-epics, task issues with acceptance criteria, and a validated dependency graph — the final stage is implementation.
+
+The **epic-delivery** skill in [Gas Town](https://github.com/steveyegge/gastown) takes the beads hierarchy produced by stages 7-8 and executes it in a swarm-style fashion: it sets up an integration branch, creates a convoy, then dispatches waves of leaf tasks to polecats in parallel, respecting the dependency graph so blocked work waits while independent tasks run concurrently. Progress is monitored, quality gates are enforced, and completeness is validated against the original plan.
+
+This is not a formula — it's a Claude Code skill that orchestrates the Gas Town machinery (polecats, convoys, the refinery merge queue) to turn your beads into landed code.
+
+The epic-delivery skill is available in [Xexr/marketplace](https://github.com/Xexr/marketplace).
