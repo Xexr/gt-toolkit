@@ -28,17 +28,17 @@ The full pipeline runs 8 stages across three phases, then hands off to execution
 Each phase produces reviewed artifacts that feed the next. The detailed stages:
 
 ```
-SPEC                          PLAN                BEADS                 DELIVERY
-─────────────────────────     ──────────────────  ────────────────────  ──────────
-1. Scope      2. Brainstorm   5. Plan Writing     7. Beads Creation     9. Epic
-   Questions     ↓               ↓                   ↓                    Delivery
-   ↓          3. Interview    6. Plan Review      8. Beads Review
-   ↓             ↓
-   ↓          4. Multimodal
-   ↓             Review
-   ↓                ↓
-   └────────────────┘
-     spec-workflow              plan-workflow        beads-workflow
+SPEC                        PLAN                BEADS                DELIVERY
+────────────────────────    ────────────────    ─────────────────    ──────────
+1. Scope Questions          5. Plan Writing     7. Beads Creation    9. Epic
+   ↓                           ↓                  ↓                    Delivery
+2. Brainstorm               6. Plan Review      8. Beads Review
+   ↓
+3. Questions Interview        plan-workflow       beads-workflow
+   ↓
+4. Multimodal Review
+
+     spec-workflow
 ```
 
 Each stage can also be run standalone via its wrapper formula.
