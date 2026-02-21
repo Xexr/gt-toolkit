@@ -12,6 +12,35 @@ The formulas follow an **expansion/wrapper pattern**:
 
 - **Workflow formulas** (`spec-workflow`, `plan-workflow`, `beads-workflow`) are orchestrators that compose multiple expansion formulas into end-to-end pipelines with dependency chains between stages.
 
+## Multi-LLM Reviews
+
+Stages 1 and 4 use **multi-model analysis** — dispatching the same task to multiple LLMs in parallel and synthesizing their outputs for higher-confidence results. This catches blind spots that any single model might miss.
+
+### Models used
+
+| Model | CLI | Used in |
+|-------|-----|---------|
+| Claude Opus 4.6 | Built-in (Task tool) | Stages 1, 4 |
+| GPT 5.3 Codex | [Codex CLI](https://github.com/openai/codex) (`codex`) | Stages 1, 4 |
+| Gemini 3 Pro | [Gemini CLI](https://github.com/google-gemini/gemini-cli) (`gemini`) | Stages 1, 4 |
+
+### What you need
+
+- **Opus only (minimum):** The pipeline works with just Claude. Stages 1 and 4 will skip models whose CLIs aren't installed and synthesize from available results. Single-model output is still valuable.
+- **Full multi-LLM (recommended):** Install the Codex and Gemini CLIs for maximum review diversity. Each model brings different reasoning patterns and catches different issues.
+
+### Installing the CLIs
+
+```bash
+# Codex CLI (OpenAI) — requires OpenAI authentication
+npm install -g @openai/codex
+
+# Gemini CLI (Google) — requires Google authentication
+npm install -g @google/gemini-cli
+```
+
+Refer to each CLI's documentation for authentication setup: [Codex CLI](https://github.com/openai/codex), [Gemini CLI](https://github.com/google-gemini/gemini-cli).
+
 ## The Pipeline
 
 The full pipeline runs 8 stages across three phases, then hands off to execution:

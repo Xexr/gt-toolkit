@@ -382,14 +382,22 @@ Run THREE Codex CLI calls in parallel. Each writes to a temp file.
 
 **IMPORTANT: File paths must be relative to the repository root, NOT under docs/.**
 
+## Pre-flight
+
+Check if Codex CLI is available:
+```bash
+command -v codex >/dev/null 2>&1 && echo "Codex CLI available" || echo "SKIP: Codex CLI not installed"
+```
+
+**If Codex CLI is NOT installed:**
+1. Write `plans/{{feature}}/01-scope/gpt-questions.md` with content: `# GPT 5.3: Skipped\n\nCodex CLI not installed. GPT analysis was not performed.`
+2. Close this step and proceed — the synthesis step will work with available models only.
+
+**If Codex CLI IS installed**, continue with execution below.
+
 ## Context Injection
 Before dispatching, read `plans/{{feature}}/01-scope/context.md` and inject its contents
 into each HEREDOC prompt under the "## Codebase Context" section.
-
-## Pre-flight
-```bash
-command -v codex >/dev/null 2>&1 && echo "Codex CLI available" || echo "ERROR: Install Codex CLI first"
-```
 
 ## Execution
 Run all three in parallel using `run_in_background=true` on the Bash calls.
@@ -544,7 +552,9 @@ needs = ["{target}.gpt-generation"]
 description = """
 **DISPATCH IMMEDIATELY** when gpt-generation completes. Do NOT wait for Opus or Gemini.
 
-Dispatch a Haiku background task to consolidate GPT temp files.
+**If GPT was skipped** (gpt-questions.md already contains "Skipped"), close this step immediately.
+
+Otherwise, dispatch a Haiku background task to consolidate GPT temp files.
 
 ```
 Task(
@@ -600,14 +610,22 @@ Run THREE Gemini CLI calls in parallel. Each writes to a temp file.
 
 **IMPORTANT: File paths must be relative to the repository root, NOT under docs/.**
 
+## Pre-flight
+
+Check if Gemini CLI is available:
+```bash
+command -v gemini >/dev/null 2>&1 && echo "Gemini CLI available" || echo "SKIP: Gemini CLI not installed"
+```
+
+**If Gemini CLI is NOT installed:**
+1. Write `plans/{{feature}}/01-scope/gemini-questions.md` with content: `# Gemini 3 Pro: Skipped\n\nGemini CLI not installed. Gemini analysis was not performed.`
+2. Close this step and proceed — the synthesis step will work with available models only.
+
+**If Gemini CLI IS installed**, continue with execution below.
+
 ## Context Injection
 Before dispatching, read `plans/{{feature}}/01-scope/context.md` and inject its contents
 into each prompt under the "## Codebase Context" section.
-
-## Pre-flight
-```bash
-command -v gemini >/dev/null 2>&1 && echo "Gemini CLI available" || echo "ERROR: Install Gemini CLI first"
-```
 
 ## Execution
 Run all three in parallel using `run_in_background=true` on the Bash calls.
@@ -756,7 +774,9 @@ needs = ["{target}.gemini-generation"]
 description = """
 **DISPATCH IMMEDIATELY** when gemini-generation completes. Do NOT wait for Opus or GPT.
 
-Dispatch a Haiku background task to consolidate Gemini temp files.
+**If Gemini was skipped** (gemini-questions.md already contains "Skipped"), close this step immediately.
+
+Otherwise, dispatch a Haiku background task to consolidate Gemini temp files.
 
 ```
 Task(
@@ -808,12 +828,16 @@ id = "{target}.synthesis"
 title = "Synthesize 3x3 matrix into question backlog"
 needs = ["{target}.opus-consolidation", "{target}.gpt-consolidation", "{target}.gemini-consolidation"]
 description = """
-Synthesize all three model documents into a final prioritized question backlog.
+Synthesize available model documents into a final prioritized question backlog.
 
 ## Input Files
-- plans/{{feature}}/01-scope/opus-questions.md
-- plans/{{feature}}/01-scope/gpt-questions.md
-- plans/{{feature}}/01-scope/gemini-questions.md
+- plans/{{feature}}/01-scope/opus-questions.md (always present)
+- plans/{{feature}}/01-scope/gpt-questions.md (may contain "Skipped" if Codex CLI was unavailable)
+- plans/{{feature}}/01-scope/gemini-questions.md (may contain "Skipped" if Gemini CLI was unavailable)
+
+**Handling skipped models:** If a model's file contains "Skipped", exclude it from synthesis.
+Note which models were used in the output. The synthesis works with 1, 2, or 3 models —
+multi-model consensus is stronger but single-model output is still valuable.
 
 ## Synthesis Process
 
