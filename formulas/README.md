@@ -96,7 +96,7 @@ Surfaces design blind spots using a 3x3 matrix of models (Opus, GPT, Gemini) and
 
 **Formula:** `spec-brainstorm-expansion`
 
-Turns scope questions into a validated design spec through structured dialogue.
+Turns scope questions into a validated design spec through structured dialogue. Inspired by the brainstorming approach in [obra/superpowers](https://github.com/obra/superpowers/tree/main).
 
 **Steps:**
 1. Check for prior scope questions, present summary, ask user to select scope
@@ -158,7 +158,7 @@ Final quality gate using 3 models in parallel across 12 review categories.
 
 **Formula:** `plan-writing-expansion`
 
-Converts a reviewed spec into a comprehensive implementation plan by running deep codebase analysis, then writing a phased delivery plan with file-level mapping and acceptance criteria.
+Converts a reviewed spec into a comprehensive implementation plan by running deep codebase analysis, then writing a phased delivery plan with file-level mapping and acceptance criteria. Inspired by the plan-writing approach in [obra/superpowers](https://github.com/obra/superpowers/tree/main).
 
 **Steps:**
 1. Validate inputs — confirm spec exists, check for prior codebase context
