@@ -14,7 +14,34 @@ The formulas follow an **expansion/wrapper pattern**:
 
 ## The Pipeline
 
-The full pipeline runs 8 stages across three phases: spec, plan, and beads. Each stage can be run standalone via its wrapper formula, or as part of a workflow.
+The full pipeline runs 8 stages across three phases, then hands off to execution:
+
+```
+┌─────────┐      ┌─────────┐      ┌─────────┐      ┌───────────┐
+│  Spec   │ ───▶ │  Plan   │ ───▶ │  Beads  │ ───▶ │ Delivery  │
+│ (1-4)   │      │ (5-6)   │      │ (7-8)   │      │   (9)     │
+└─────────┘      └─────────┘      └─────────┘      └───────────┘
+  idea →           spec →           plan →           beads →
+  reviewed spec    reviewed plan    verified beads   landed code
+```
+
+Each phase produces reviewed artifacts that feed the next. The detailed stages:
+
+```
+SPEC                          PLAN                BEADS                 DELIVERY
+─────────────────────────     ──────────────────  ────────────────────  ──────────
+1. Scope      2. Brainstorm   5. Plan Writing     7. Beads Creation     9. Epic
+   Questions     ↓               ↓                   ↓                    Delivery
+   ↓          3. Interview    6. Plan Review      8. Beads Review
+   ↓             ↓
+   ↓          4. Multimodal
+   ↓             Review
+   ↓                ↓
+   └────────────────┘
+     spec-workflow              plan-workflow        beads-workflow
+```
+
+Each stage can also be run standalone via its wrapper formula.
 
 ### Spec (Stages 1-4)
 
