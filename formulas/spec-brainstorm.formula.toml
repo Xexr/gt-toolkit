@@ -6,8 +6,7 @@
 #
 # Usage:
 #   gt sling spec-brainstorm dypt/crew/neo \
-#     --var feature="task-templates" \
-#     --var brief="Add a Task Templates feature that allows users to..."
+#     --var feature="task-templates"
 
 description = """
 Turn ideas into fully formed validated design specs through smart dialogue.
@@ -56,10 +55,6 @@ version = 4
 [vars]
 [vars.feature]
 description = "Feature name (used for input/output paths)"
-required = true
-
-[vars.brief]
-description = "Feature brief or description"
 required = true
 
 # Placeholder step that will be expanded

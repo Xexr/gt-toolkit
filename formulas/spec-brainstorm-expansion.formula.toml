@@ -68,6 +68,16 @@ Also check for codebase context: `plans/{{feature}}/01-scope/context.md`
 
 ---
 
+## Resolve Feature Brief
+
+Before presenting session options, resolve the feature brief:
+1. Check `plans/{{feature}}/01-scope/context.md` — extract the brief from the "Feature Brief" section if it exists
+2. If no context file or no brief found, use `AskUserQuestion` to ask: "What should this feature do? (1-3 sentences)"
+
+Store the resolved brief for display below.
+
+---
+
 ## If Questions File Found
 
 Present this summary to the user:
@@ -79,7 +89,7 @@ I found a questions file from a previous multimodal scope analysis.
 
 **Feature:** {{feature}}
 
-**Brief:** {{brief}}
+**Brief:** [resolved brief from above]
 
 ### Question Summary
 
@@ -141,7 +151,7 @@ asking questions as we go to understand requirements.
 
 **Feature:** {{feature}}
 
-**Brief:** {{brief}}
+**Brief:** [resolved brief from above]
 
 Let's begin. First, let me check out the current project state...
 ```

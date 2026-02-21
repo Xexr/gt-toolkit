@@ -53,7 +53,7 @@ Turns scope questions into a validated design spec through structured dialogue.
 
 **Outputs:** `plans/{feature}/02-spec/spec.md`, `plans/{feature}/01-scope/question-triage.md`
 
-**Vars:** `feature`, `brief`
+**Vars:** `feature` (brief is resolved from `context.md` or by asking the user)
 
 ---
 
@@ -303,8 +303,7 @@ gt sling spec-multimodal-scope-questions <crew> \
 
 # Stage 2: Brainstorm
 gt sling spec-brainstorm <crew> \
-  --var feature="command-palette" \
-  --var brief="Add a keyboard-centric command palette for power users..."
+  --var feature="command-palette"
 
 # Stage 3: Questions interview
 gt sling spec-questions-interview <crew> \
