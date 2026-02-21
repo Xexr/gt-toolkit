@@ -113,9 +113,9 @@ Converts a reviewed spec into a comprehensive implementation plan by running dee
 
 **Outputs:** `plans/{feature}/03-plan/plan.md`, `plans/{feature}/03-plan/plan-context.md`
 
-**Vars:** `feature`, `brief`
+**Vars:** `feature`
 
-**Prerequisite:** Run `spec-workflow` (or at least `spec-brainstorm`) first to produce `plans/{feature}/02-spec/spec.md`.
+**Prerequisite:** Run `spec-workflow` (or at least `spec-brainstorm`) first to produce `plans/{feature}/02-spec/spec.md`. The brief is captured in earlier stage artifacts and does not need to be passed again.
 
 ---
 
@@ -247,11 +247,10 @@ Step 5 is interactive (user dialogue for architectural decisions). Step 6 auto-a
 **Usage:**
 ```bash
 gt sling plan-workflow <crew> \
-  --var feature="command-palette" \
-  --var brief="Add a keyboard-centric command palette for power users..."
+  --var feature="command-palette"
 ```
 
-**Vars:** `feature`, `brief`
+**Vars:** `feature`
 
 **Prerequisite:** Completed spec at `plans/{feature}/02-spec/spec.md` (from `spec-workflow`).
 
@@ -287,8 +286,7 @@ gt sling spec-workflow <crew> \
 
 # Stages 5-6: Plan pipeline (after spec is reviewed)
 gt sling plan-workflow <crew> \
-  --var feature="command-palette" \
-  --var brief="Add a keyboard-centric command palette for power users..."
+  --var feature="command-palette"
 
 # Stages 7-8: Beads pipeline (after plan is reviewed)
 gt sling beads-workflow <crew> \
@@ -318,8 +316,7 @@ gt sling spec-multimodal-review <crew> \
 
 # Stage 5: Plan writing
 gt sling plan-writing <crew> \
-  --var feature="command-palette" \
-  --var brief="Add a keyboard-centric command palette for power users..."
+  --var feature="command-palette"
 
 # Stage 6: Plan review
 gt sling plan-review-to-spec <crew> \

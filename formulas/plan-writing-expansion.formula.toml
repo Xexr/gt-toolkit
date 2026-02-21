@@ -57,7 +57,7 @@ type = "expansion"
 version = 1
 
 # Note: vars are inherited from the parent workflow that expands this
-# Required vars: feature, brief
+# Required vars: feature
 
 # ============================================================================
 # STEP 1: LOAD INPUTS

@@ -12,8 +12,7 @@
 #
 # Usage:
 #   gt sling plan-workflow <crew> \
-#     --var feature="command-palette" \
-#     --var brief="Add a keyboard-centric command palette for power users..."
+#     --var feature="command-palette"
 
 description = """
 Plan workflow from spec to reviewed implementation plan.
@@ -30,7 +29,7 @@ auto-applies restorative fixes and only escalates genuine ambiguities.
 
 **NOTE:** Blocked by beads#1901 (cross-expansion dependency loss). Until that
 fix lands, use the 2 formulas individually in sequence:
-  gt sling plan-writing <crew> --var feature="..." --var brief="..."
+  gt sling plan-writing <crew> --var feature="..."
   gt sling plan-review-to-spec <crew> --var feature="..."
 
 ## Step Lifecycle (Molecule Work Loop)
@@ -69,10 +68,6 @@ version = 2
 [vars]
 [vars.feature]
 description = "Feature name (used for all input/output paths)"
-required = true
-
-[vars.brief]
-description = "Brief description of the feature for plan-writing context"
 required = true
 
 # ============================================================================
