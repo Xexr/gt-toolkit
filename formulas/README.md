@@ -8,7 +8,7 @@ The formulas follow an **expansion/wrapper pattern**:
 
 - **Expansion formulas** (`*-expansion.formula.toml`) contain the actual multi-step logic. They use `type = "expansion"` and define `[[template]]` steps with `{target}` placeholders, allowing them to be composed into larger workflows.
 
-- **Wrapper formulas** are thin standalone entrypoints that expand a single expansion formula into a runnable workflow. They define a placeholder `[[steps]]` block and use `[compose] [[compose.expand]]` to inline the expansion. Use these when you want to run one stage of the pipeline in isolation.
+- **Wrapper formulas** are thin standalone entrypoints that expand a single expansion formula into a runnable workflow. They define a placeholder `[[steps]]` block and use `[compose] [[compose.expand]]` to inline the expansion. Use these when you want to run one stage of the pipeline in isolation. These are temporary — [beads#1903](https://github.com/steveyegge/beads/pull/1903) will allow expansion formulas to run directly, making wrappers unnecessary.
 
 - **Workflow formulas** (`spec-workflow`, `plan-workflow`, `beads-workflow`) are orchestrators that compose multiple expansion formulas into end-to-end pipelines with dependency chains between stages.
 
