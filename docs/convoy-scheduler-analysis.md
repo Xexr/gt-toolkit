@@ -3,9 +3,10 @@
 > Working document capturing consolidated understanding of the convoy feeding and
 > capacity-controlled dispatch systems, how they interrelate, and open design questions.
 >
-> Based on analysis of PRs #1615, #1759, #1820, #1747, #1886, #1885, the
-> convoy SKILL.md reference, and source-level reading of the dispatch paths.
-> February 2026.
+> Based on analysis of PRs #1615 (closed, superseded), #1759 (merged),
+> #1820 (merged), #1747 (merged), #1886 (merged), #1885 (**open, not yet
+> merged**), the convoy SKILL.md reference, and source-level reading of the
+> dispatch paths. February 2026.
 
 ## 1. Historical Context: How Work Was Dispatched Before
 
@@ -174,18 +175,17 @@ and recovery coordinator. It is not a dispatch engine — it makes intelligent
 decisions about exceptional cases that the mechanical daemon loops cannot
 handle. Its convoy-related responsibilities are:
 
-### Stranded convoy feeding (`gt deacon feed-stranded`)
+### ~~Stranded convoy feeding~~ (removed in PR #1885, not yet merged)
 
-The Deacon periodically finds stranded convoys (via `gt convoy stranded
---json` — the same command the ConvoyManager's stranded scan uses) and
-dispatches dogs to feed them. Unlike the ConvoyManager, the Deacon adds
-rate limiting:
+The Deacon previously found stranded convoys and dispatched dogs to feed
+them — a second dispatch path competing with the ConvoyManager's stranded
+scan. PR #1885 removes this entirely: the `feed-stranded-convoys` patrol
+step is deleted, and `CONVOY_NEEDS_FEEDING` mail from the Refinery is
+archived without action. The architectural decision is to eliminate the
+competing actor rather than add coordination between the two (see section 8).
 
-- **Per-convoy cooldown** (default 10 minutes) tracked in
-  `deacon/feed-stranded-state.json`
-- **Max dispatches per cycle** (default 3) to avoid overwhelming the system
-- Dispatches a `mol-convoy-feed` molecule to `deacon/dogs`, not the
-  individual bead directly
+If merged, stranded convoy feeding becomes exclusively the ConvoyManager's
+responsibility (event-driven 5s poll + 30s periodic scan).
 
 ### Recovered bead redispatch (`gt deacon redispatch`)
 
@@ -208,11 +208,12 @@ again.
 
 ### Relationship to the ConvoyManager
 
-The Deacon and ConvoyManager operate independently with overlapping
-responsibilities for stranded work. The ConvoyManager is the fast mechanical
-loop (30s scan, immediate sling). The Deacon is the slower intelligent layer
-(rate-limited, cooldown-aware, escalation-capable). They share no state
-and have no coordination mechanism — see section 8 for the implications.
+With convoy feeding removed (PR #1885, not yet merged), the Deacon's
+remaining convoy-adjacent responsibilities would be recovery (redispatch,
+stale hooks) and completion detection — not dispatch. The ConvoyManager
+would own all dispatch paths. The remaining overlap is the recovered bead
+redispatch, where the Deacon's `--force` flag can still race with the
+ConvoyManager (see section 8).
 
 ## 6. Key Design Details
 
@@ -371,6 +372,13 @@ when all 10 beads could be dispatched immediately.
 
 ## 8. Potential Race Conditions: Deacon vs ConvoyManager
 
+> **Proposed resolution (PR #1885, open, not yet merged):** Rather than
+> adding coordination between the two actors, PR #1885 removes the Deacon
+> from convoy feeding entirely — deleting the `feed-stranded-convoys` patrol
+> step and reducing `CONVOY_NEEDS_FEEDING` mail to archive-only. This would
+> eliminate Scenario 1 and the guard gaps related to feed-stranded. Scenario 2
+> (recovered bead redispatch via `--force`) remains open.
+
 The Deacon and ConvoyManager both detect and act on stranded work
 independently. They share no state, hold no shared locks, and have no
 coordination mechanism. This creates several race condition windows.
@@ -393,41 +401,34 @@ target) unless `--force` is used.
 
 ### Where guards break down
 
-**Deacon feed-stranded does not check `areScheduled()`**. It checks
-per-convoy cooldown but not whether individual beads within the convoy are
-already dispatched or queued. This means the Deacon can dispatch a dog to
-feed a convoy that the ConvoyManager is already feeding.
+~~**Deacon feed-stranded does not check `areScheduled()`**.~~ *Eliminated
+by PR #1885 — Deacon no longer feeds convoys.*
 
 **Deacon redispatch uses `--force`**. This bypasses the idempotency checks
 in `gt sling`. If the ConvoyManager has already slung and hooked a recovered
 bead, the Deacon's `--force` sling can override the hook and create a
-second dispatch.
+second dispatch. *(Still open — not addressed by PR #1885.)*
 
-**Deacon feed-stranded dispatches at the convoy level, not the bead level**.
-It slings a `mol-convoy-feed` molecule to a dog, not the individual bead.
-The per-bead flock does not help here because the Deacon and ConvoyManager
-are slinging different things — one slings the work bead, the other slings
-a feed molecule.
+~~**Deacon feed-stranded dispatches at the convoy level, not the bead level**~~.
+*Eliminated by PR #1885 — Deacon no longer feeds convoys.*
 
 **Status checks are not atomic with sling calls**. The Deacon's redispatch
 checks bead status before calling `gt sling`, but another actor can change
 the status between the check and the sling (TOCTOU window).
+*(Still open for the redispatch path.)*
 
 ### Concrete race scenarios
 
-#### Scenario 1: Dual convoy feeding (medium likelihood, low severity)
+#### ~~Scenario 1: Dual convoy feeding~~ (eliminated by PR #1885)
 
-1. ConvoyManager stranded scan detects convoy C with ready bead X
-2. ConvoyManager slings bead X directly (30s cycle)
-3. Deacon feed-stranded detects same convoy C (not in cooldown)
-4. Deacon dispatches `mol-convoy-feed` dog for convoy C
-5. Dog arrives, finds convoy C, slings bead Y (next ready bead)
+~~1. ConvoyManager stranded scan detects convoy C with ready bead X~~
+~~2. ConvoyManager slings bead X directly (30s cycle)~~
+~~3. Deacon feed-stranded detects same convoy C (not in cooldown)~~
+~~4. Deacon dispatches `mol-convoy-feed` dog for convoy C~~
+~~5. Dog arrives, finds convoy C, slings bead Y (next ready bead)~~
 
-**Result**: Two beads dispatched from the same convoy in quick succession.
-Not catastrophic — both beads were ready — but the convoy gets more
-attention than intended, and if capacity is limited, this consumes extra
-slots. The per-bead flock prevents the same bead being slung twice, so the
-main risk is resource waste, not duplicate work.
+*Eliminated: Deacon no longer feeds convoys. ConvoyManager is the sole
+dispatch actor for convoy work.*
 
 #### Scenario 2: Recovered bead double-dispatch (lower likelihood, medium severity)
 
@@ -456,16 +457,14 @@ the other fails, leaving an orphaned context.
 
 ### Risk assessment
 
-| Scenario | Likelihood | Severity | Primary gap |
-|----------|-----------|----------|-------------|
-| Dual convoy feeding | Medium | Low | Deacon doesn't check `areScheduled()` |
-| Recovered bead double-dispatch | Low-Medium | Medium | `--force` bypasses idempotency |
-| Duplicate sling contexts | Low | Low | Timing-dependent, mostly guarded |
+| Scenario | Likelihood | Severity | Status |
+|----------|-----------|----------|--------|
+| ~~Dual convoy feeding~~ | ~~Medium~~ | ~~Low~~ | **Eliminated** (PR #1885) |
+| Recovered bead double-dispatch | Low-Medium | Medium | Open — `--force` bypasses idempotency |
+| Duplicate sling contexts | Low | Low | Open — timing-dependent, mostly guarded |
 
-The most likely failure mode is not two polecats on the same bead (the
-per-bead flock mostly prevents this) but rather: the Deacon dispatching a
-dog to feed a convoy that the ConvoyManager is already feeding, resulting
-in more beads being dispatched than intended within a short window.
+With PR #1885, the primary remaining race is Scenario 2: the Deacon's
+`--force` redispatch overriding a ConvoyManager hook on a recovered bead.
 
 ## 9. Open Questions
 
@@ -539,19 +538,15 @@ in more beads being dispatched than intended within a short window.
 
 ### Deacon / ConvoyManager coordination
 
-11. **Should the Deacon check `areScheduled()` before feeding?** The
-    ConvoyManager's stranded scan checks for open sling contexts. The Deacon's
-    feed-stranded does not. Adding this check would prevent the Deacon from
-    feeding convoys where work is already queued or in flight.
+11. ~~**Should the Deacon check `areScheduled()` before feeding?**~~ *Mooted
+    by PR #1885 (open, not yet merged): Deacon no longer feeds convoys at all.*
 
 12. **Should the Deacon's redispatch avoid `--force`?** Using `--force`
     bypasses idempotency checks that would catch a bead already hooked by the
     ConvoyManager. Removing `--force` would let the standard idempotency
     checks prevent double-dispatch, at the cost of the Deacon being unable
-    to override stale hooks.
+    to override stale hooks. *(Still open — not addressed by PR #1885.)*
 
-13. **Should there be a convoy-level lock for feeding?** A flock on
-    `~/.runtime/locks/convoy/<convoy-id>.flock` held during the entire feed
-    operation would prevent the Deacon and ConvoyManager from feeding the
-    same convoy simultaneously. This would be a stronger guarantee than
-    per-bead locking alone.
+13. ~~**Should there be a convoy-level lock for feeding?**~~ *Mooted by
+    PR #1885 (open, not yet merged): with a single feeding actor
+    (ConvoyManager), there is no cross-actor convoy contention to lock against.*
