@@ -6,10 +6,6 @@
 #
 # Uses expansion composition to inline all workflow steps.
 #
-# NOTE: Requires beads#1901 fix (cross-expansion dependency inheritance)
-# to work correctly. Until then, step 2 loses its `needs` after
-# cooking and may execute out of order.
-#
 # Usage:
 #   gt sling beads-workflow <crew> \
 #     --var feature="command-palette"
@@ -26,11 +22,6 @@ auto-applies restorative fixes and only escalates genuine ambiguities.
 
 **Requires:** Reviewed plan at plans/{{feature}}/03-plan/plan.md
 **Output:** Verified beads hierarchy ready for implementation
-
-**NOTE:** Blocked by beads#1901 (cross-expansion dependency loss). Until that
-fix lands, use the 2 formulas individually in sequence:
-  gt sling beads-creation <crew> --var feature="..."
-  gt sling beads-review-to-plan <crew> --var feature="..."
 
 ## Step Lifecycle (Molecule Work Loop)
 
