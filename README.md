@@ -31,7 +31,7 @@ See [formulas/README.md](formulas/README.md) for full stage-by-stage documentati
 
 | Directory | Contents |
 |-----------|----------|
-| `formulas/` | `.formula.toml` files — the design-to-delivery pipeline. 8 expansion formulas, 3 workflow orchestrators, and standalone wrappers. |
+| `formulas/` | `.formula.toml` files — the design-to-delivery pipeline. 8 expansion formulas and 3 workflow orchestrators. |
 | `docs/` | Workflow guides and reference material |
 | `configs/` | Configuration templates |
 
