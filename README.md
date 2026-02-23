@@ -32,6 +32,7 @@ See [formulas/README.md](formulas/README.md) for full stage-by-stage documentati
 | Directory | Contents |
 |-----------|----------|
 | `formulas/` | `.formula.toml` files — the design-to-delivery pipeline. 8 expansion formulas and 3 workflow orchestrators. |
+| `scripts/` | Maintenance scripts. **Read the warnings in [scripts/beads-cleanup/README.md](scripts/beads-cleanup/README.md) before use — these scripts permanently delete data from Dolt databases.** |
 | `docs/` | Workflow guides and reference material |
 | `configs/` | Configuration templates |
 

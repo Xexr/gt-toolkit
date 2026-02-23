@@ -1,5 +1,11 @@
 # Beads Cleanup Scripts
 
+> **WARNING: These scripts permanently delete data from your Dolt databases.**
+> They purge beads (wisps, molecules, ephemeral issues, tombstones), drop
+> branches, squash commit history, and force-push to remotes. Read each
+> script's description below and its `--help` output before running it.
+> There is no undo once data is purged and committed.
+
 Maintenance scripts for Dolt databases used by the beads issue tracker.
 All scripts auto-discover databases and accept comma-separated or space-separated database names.
 
