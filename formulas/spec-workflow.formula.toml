@@ -58,7 +58,7 @@ Do NOT batch-close all steps at the end — close each one as you finish it.
 """
 formula = "spec-workflow"
 type = "workflow"
-version = 5
+version = 6
 
 [vars]
 [vars.feature]
@@ -118,13 +118,39 @@ This step is expanded into the full 3x3 matrix analysis:
 """
 
 # ============================================================================
+# CHECKPOINT: After Scope Questions → before Brainstorm
+# ============================================================================
+
+[[steps]]
+id = "checkpoint-after-scope"
+title = "Context Checkpoint"
+needs = ["step-1-scope-questions"]
+description = """
+## Context Checkpoint
+
+Scope questions (Stage 1) is complete. Key artifacts produced:
+- plans/{{feature}}/01-scope/context.md (codebase context)
+- plans/{{feature}}/01-scope/questions.md (synthesized question backlog)
+- Per-model question files from 3x3 matrix analysis
+
+**If this is your first step in a fresh session**, close this step and continue.
+
+**Otherwise**, cycle your context for the next phase:
+
+1. Close this step: `bd close <step-id>`
+2. Handoff: `gt handoff -s "Spec workflow: scope questions complete" -m "Scope questions generated via 3x3 matrix analysis. Questions backlog ready at plans/{{feature}}/01-scope/questions.md. Next: brainstorm phase — interactive dialogue to turn questions into validated spec."`
+
+The next session picks up automatically at Brainstorm (Stage 2).
+"""
+
+# ============================================================================
 # STEP 2: BRAINSTORM (expanded from spec-brainstorm-expansion)
 # ============================================================================
 
 [[steps]]
 id = "step-2-brainstorm"
 title = "Step 2: Brainstorm"
-needs = ["step-1-scope-questions"]
+needs = ["checkpoint-after-scope"]
 description = """
 Turn scope questions into a validated design spec through smart dialogue.
 
@@ -142,13 +168,38 @@ This step is expanded into the full brainstorming workflow:
 """
 
 # ============================================================================
+# CHECKPOINT: After Brainstorm → before Questions Interview
+# ============================================================================
+
+[[steps]]
+id = "checkpoint-after-brainstorm"
+title = "Context Checkpoint"
+needs = ["step-2-brainstorm"]
+description = """
+## Context Checkpoint
+
+Brainstorm (Stage 2) is complete. Key artifacts produced:
+- plans/{{feature}}/01-scope/question-triage.md (question triage)
+- plans/{{feature}}/02-spec/spec.md (validated spec draft)
+
+**If this is your first step in a fresh session**, close this step and continue.
+
+**Otherwise**, cycle your context for the next phase:
+
+1. Close this step: `bd close <step-id>`
+2. Handoff: `gt handoff -s "Spec workflow: brainstorm complete" -m "Brainstorm complete — spec draft written at plans/{{feature}}/02-spec/spec.md with branch points decided. Next: questions interview for completeness check + fresh assessment, then multimodal review."`
+
+The next session picks up automatically at Questions Interview (Stage 3).
+"""
+
+# ============================================================================
 # STEP 3: QUESTIONS INTERVIEW (expanded from spec-questions-interview-expansion)
 # ============================================================================
 
 [[steps]]
 id = "step-3-questions-interview"
 title = "Step 3: Questions Interview"
-needs = ["step-2-brainstorm"]
+needs = ["checkpoint-after-brainstorm"]
 description = """
 Review spec for gaps through completeness check + fresh assessment.
 

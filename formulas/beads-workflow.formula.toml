@@ -54,7 +54,7 @@ Do NOT batch-close all steps at the end — close each one as you finish it.
 """
 formula = "beads-workflow"
 type = "workflow"
-version = 1
+version = 2
 
 [vars]
 [vars.feature]
@@ -112,13 +112,39 @@ This step is expanded into the full beads-creation workflow:
 """
 
 # ============================================================================
+# CHECKPOINT: After Beads Creation → before Beads Review
+# ============================================================================
+
+[[steps]]
+id = "checkpoint-after-beads-creation"
+title = "Context Checkpoint"
+needs = ["step-1-beads-creation"]
+description = """
+## Context Checkpoint
+
+Beads creation (Stage 1) is complete. Key artifacts produced:
+- Beads epic with phase sub-epics and task issues
+- Dependency graph matching plan phasing
+- plans/{{feature}}/04-beads/ directory
+
+**If this is your first step in a fresh session**, close this step and continue.
+
+**Otherwise**, cycle your context for the next phase:
+
+1. Close this step: `bd close <step-id>`
+2. Handoff: `gt handoff -s "Beads workflow: beads creation complete" -m "Beads hierarchy created from plan — feature epic, phase sub-epics, and task issues with dependency graph. Next: 3-agent bidirectional beads review checking beads↔plan alignment."`
+
+The next session picks up automatically at Beads Review (Stage 2).
+"""
+
+# ============================================================================
 # STEP 2: BEADS REVIEW TO PLAN (expanded from beads-review-to-plan-expansion)
 # ============================================================================
 
 [[steps]]
 id = "step-2-beads-review"
 title = "Step 2: Beads Review to Plan"
-needs = ["step-1-beads-creation"]
+needs = ["checkpoint-after-beads-creation"]
 description = """
 3-agent bidirectional review checking beads↔plan alignment.
 

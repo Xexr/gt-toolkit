@@ -54,7 +54,7 @@ Do NOT batch-close all steps at the end — close each one as you finish it.
 """
 formula = "plan-workflow"
 type = "workflow"
-version = 2
+version = 3
 
 [vars]
 [vars.feature]
@@ -110,13 +110,38 @@ This step is expanded into the full plan-writing workflow:
 """
 
 # ============================================================================
+# CHECKPOINT: After Plan Writing → before Plan Review
+# ============================================================================
+
+[[steps]]
+id = "checkpoint-after-plan-writing"
+title = "Context Checkpoint"
+needs = ["step-1-plan-writing"]
+description = """
+## Context Checkpoint
+
+Plan writing (Stage 1) is complete. Key artifacts produced:
+- plans/{{feature}}/03-plan/plan.md (phased implementation plan)
+- plans/{{feature}}/03-plan/plan-context.md (codebase analysis)
+
+**If this is your first step in a fresh session**, close this step and continue.
+
+**Otherwise**, cycle your context for the next phase:
+
+1. Close this step: `bd close <step-id>`
+2. Handoff: `gt handoff -s "Plan workflow: plan writing complete" -m "Implementation plan written at plans/{{feature}}/03-plan/plan.md with phases, tasks, dependencies, and file paths. Next: 3-agent bidirectional plan review checking plan↔spec alignment."`
+
+The next session picks up automatically at Plan Review (Stage 2).
+"""
+
+# ============================================================================
 # STEP 2: PLAN REVIEW TO SPEC (expanded from plan-review-to-spec-expansion)
 # ============================================================================
 
 [[steps]]
 id = "step-2-plan-review"
 title = "Step 2: Plan Review to Spec"
-needs = ["step-1-plan-writing"]
+needs = ["checkpoint-after-plan-writing"]
 description = """
 3-agent bidirectional review checking plan↔spec alignment.
 
