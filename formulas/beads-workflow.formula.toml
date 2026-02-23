@@ -114,6 +114,31 @@ This step is expanded into the full review workflow:
 """
 
 # ============================================================================
+# COMPLETE: Summary
+# ============================================================================
+
+[[steps]]
+id = "complete"
+title = "Workflow Complete"
+needs = ["step-2-beads-review"]
+description = """
+Beads workflow is complete.
+
+**Summary:**
+- Step 1: Beads hierarchy created (feature epic, phase sub-epics, task issues)
+- Step 2: Beads reviewed against plan (3-agent bidirectional coverage check)
+
+**Final outputs:**
+- Verified beads hierarchy with validated dependency graph
+- plans/{{feature}}/04-beads/beads-draft.md (draft structure)
+- plans/{{feature}}/04-beads/beads-report.md (creation report)
+- plans/{{feature}}/04-beads/beads-review.md (review findings)
+
+**Next steps:**
+- Run epic-delivery to dispatch the beads to polecats for implementation
+"""
+
+# ============================================================================
 # COMPOSITION: Expand placeholder steps with expansion formulas
 # ============================================================================
 

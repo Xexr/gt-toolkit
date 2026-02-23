@@ -112,6 +112,31 @@ This step is expanded into the full review workflow:
 """
 
 # ============================================================================
+# COMPLETE: Summary
+# ============================================================================
+
+[[steps]]
+id = "complete"
+title = "Workflow Complete"
+needs = ["step-2-plan-review"]
+description = """
+Plan workflow is complete.
+
+**Summary:**
+- Step 1: Implementation plan written (phases, tasks, dependencies, file paths)
+- Step 2: Plan reviewed against spec (3-agent bidirectional coverage check)
+
+**Final outputs:**
+- plans/{{feature}}/03-plan/plan.md (reviewed implementation plan)
+- plans/{{feature}}/03-plan/plan-review.md (review findings)
+- plans/{{feature}}/03-plan/plan-context.md (codebase analysis)
+
+**Next steps:**
+- Run beads-workflow to convert the plan into a verified beads issue hierarchy
+- Run epic-delivery to dispatch the beads to polecats for implementation
+"""
+
+# ============================================================================
 # COMPOSITION: Expand placeholder steps with expansion formulas
 # ============================================================================
 
