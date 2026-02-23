@@ -20,7 +20,7 @@ Takes the spec produced by spec-workflow and produces an implementation plan
 that maps spec requirements onto the actual codebase — architecture decisions,
 phased delivery, file-level mapping, and conventions to follow.
 
-The plan is structured to make the subsequent design-to-beads step mechanical:
+The plan is structured to make the subsequent beads-creation step mechanical:
 phases become epics, tasks become issues, prerequisites become dependencies.
 
 ## Step Lifecycle (Molecule Work Loop)
@@ -408,7 +408,7 @@ Read these files before writing:
 **The plan bridges WHAT (spec) and HOW (code).** Every plan section should be
 traceable to spec requirements and grounded in codebase reality.
 
-**Structure for downstream consumption.** The design-to-beads step will
+**Structure for downstream consumption.** The beads-creation step will
 mechanically decompose this plan:
 - Phases → epics
 - Tasks within phases → issues
@@ -423,7 +423,7 @@ agent with zero prior context beyond this document and the codebase.
 
 **Phases should maximize parallelism.** Within each phase, identify which tasks
 are independent and which have true sequential dependencies. The more independent
-tasks per phase, the more parallelism design-to-beads can extract.
+tasks per phase, the more parallelism beads-creation can extract.
 
 ## Output Location
 

@@ -880,6 +880,6 @@ Report completion:
 **Commit:** [short hash]
 **Pushed to:** origin/[branch]
 
-Ready for next pipeline step (design-to-beads).
+Ready for next pipeline step: run beads-workflow to create the beads issue hierarchy, then epic-delivery to dispatch.
 ```
 """
