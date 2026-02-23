@@ -70,12 +70,38 @@ description = "Feature brief or description (1-3 sentences describing what to bu
 required = true
 
 # ============================================================================
+# KICKOFF: Workflow banner
+# ============================================================================
+
+[[steps]]
+id = "kickoff"
+title = "Spec Workflow Kickoff"
+description = """
+═══════════════════════════════════════════════════════════════
+ SPEC WORKFLOW
+ Complete design pipeline from idea to reviewed spec.
+
+ Steps:
+  1. Multimodal Scope Questions — 3x3 matrix surfaces blind spots
+  2. Brainstorm — smart dialogue to validated spec
+  3. Questions Interview — two-pass completeness review
+  4. Multimodal Review — three models review in parallel
+
+ Input:  Feature name + brief description
+ Output: Reviewed spec at plans/{feature}/02-spec/spec.md
+═══════════════════════════════════════════════════════════════
+
+Output this banner to the user, then close this step to begin.
+"""
+
+# ============================================================================
 # STEP 1: MULTIMODAL SCOPE QUESTIONS (expanded from spec-scope-questions-expansion)
 # ============================================================================
 
 [[steps]]
 id = "step-1-scope-questions"
 title = "Step 1: Multimodal Scope Questions"
+needs = ["kickoff"]
 description = """
 Surface design blind spots using a 3x3 matrix of models and perspectives.
 

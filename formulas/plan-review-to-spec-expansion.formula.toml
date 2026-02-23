@@ -70,6 +70,20 @@ version = 1
 id = "{target}.load-inputs"
 title = "Validate inputs"
 description = """
+**Output this banner to the user before starting work:**
+
+```
+═══════════════════════════════════════════════════════════════
+ STAGE 6: PLAN REVIEW
+ Three agents verify plan-to-spec alignment bidirectionally.
+
+ Pipeline: Spec (1-4) > Plan (5-6) > Beads (7-8) > Delivery
+ You are here: □ □ □ □ | □ ■ | □ □
+═══════════════════════════════════════════════════════════════
+```
+
+**Then proceed with step 1:**
+
 Validate that all required artifacts exist before dispatching reviewers.
 
 ## Bead Lifecycle Commands

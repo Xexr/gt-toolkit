@@ -58,6 +58,20 @@ version = 1
 id = "{target}.kickoff"
 title = "Initialize brainstorming session"
 description = """
+**Output this banner to the user before starting work:**
+
+```
+═══════════════════════════════════════════════════════════════
+ STAGE 2: BRAINSTORM
+ Smart dialogue turns scope questions into a validated design spec.
+
+ Pipeline: Spec (1-4) > Plan (5-6) > Beads (7-8) > Delivery
+ You are here: □ ■ □ □ | □ □ | □ □
+═══════════════════════════════════════════════════════════════
+```
+
+**Then proceed with step 1:**
+
 Check for prior scope questions and present session options to user.
 
 ## Check for Questions File

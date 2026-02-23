@@ -70,6 +70,20 @@ version = 1
 id = "{target}.load-inputs"
 title = "Validate inputs and snapshot beads"
 description = """
+**Output this banner to the user before starting work:**
+
+```
+═══════════════════════════════════════════════════════════════
+ STAGE 8: BEADS REVIEW
+ Three agents verify beads-to-plan alignment bidirectionally.
+
+ Pipeline: Spec (1-4) > Plan (5-6) > Beads (7-8) > Delivery
+ You are here: □ □ □ □ | □ □ | □ ■
+═══════════════════════════════════════════════════════════════
+```
+
+**Then proceed with step 1:**
+
 Validate that all required artifacts exist and capture a snapshot of the current
 beads state for the review agents to work from.
 

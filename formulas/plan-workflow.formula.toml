@@ -62,11 +62,35 @@ description = "Feature name (used for all input/output paths)"
 required = true
 
 # ============================================================================
+# KICKOFF: Workflow banner
+# ============================================================================
+
+[[steps]]
+id = "kickoff"
+title = "Plan Workflow Kickoff"
+description = """
+═══════════════════════════════════════════════════════════════
+ PLAN WORKFLOW
+ From reviewed spec to reviewed implementation plan.
+
+ Steps:
+  1. Plan Writing — deep codebase analysis, phased delivery plan
+  2. Plan Review — three agents verify plan-to-spec alignment
+
+ Input:  Reviewed spec at plans/{feature}/02-spec/spec.md
+ Output: Reviewed plan at plans/{feature}/03-plan/plan.md
+═══════════════════════════════════════════════════════════════
+
+Output this banner to the user, then close this step to begin.
+"""
+
+# ============================================================================
 # STEP 1: PLAN WRITING (expanded from plan-writing-expansion)
 # ============================================================================
 
 [[steps]]
 id = "step-1-plan-writing"
+needs = ["kickoff"]
 title = "Step 1: Plan Writing"
 description = """
 Transform the reviewed spec into a phased implementation plan.

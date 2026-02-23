@@ -67,6 +67,20 @@ version = 1
 id = "{target}.load-inputs"
 title = "Validate inputs and setup"
 description = """
+**Output this banner to the user before starting work:**
+
+```
+═══════════════════════════════════════════════════════════════
+ STAGE 5: PLAN WRITING
+ Deep codebase analysis produces a phased implementation plan.
+
+ Pipeline: Spec (1-4) > Plan (5-6) > Beads (7-8) > Delivery
+ You are here: □ □ □ □ | ■ □ | □ □
+═══════════════════════════════════════════════════════════════
+```
+
+**Then proceed with step 1:**
+
 Validate that the spec exists and set up output directories.
 
 ## Validation

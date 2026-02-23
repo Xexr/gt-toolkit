@@ -62,11 +62,35 @@ description = "Feature name (used for all input/output paths)"
 required = true
 
 # ============================================================================
+# KICKOFF: Workflow banner
+# ============================================================================
+
+[[steps]]
+id = "kickoff"
+title = "Beads Workflow Kickoff"
+description = """
+═══════════════════════════════════════════════════════════════
+ BEADS WORKFLOW
+ From reviewed plan to verified beads issue hierarchy.
+
+ Steps:
+  1. Beads Creation — plan to beads epic with dependency graph
+  2. Beads Review — three agents verify beads-to-plan alignment
+
+ Input:  Reviewed plan at plans/{feature}/03-plan/plan.md
+ Output: Verified beads hierarchy ready for implementation
+═══════════════════════════════════════════════════════════════
+
+Output this banner to the user, then close this step to begin.
+"""
+
+# ============================================================================
 # STEP 1: BEADS CREATION (expanded from beads-creation-expansion)
 # ============================================================================
 
 [[steps]]
 id = "step-1-beads-creation"
+needs = ["kickoff"]
 title = "Step 1: Beads Creation"
 description = """
 Convert the reviewed plan into a beads epic with tasks and dependencies.

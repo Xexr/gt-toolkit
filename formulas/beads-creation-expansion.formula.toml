@@ -117,6 +117,20 @@ version = 2
 id = "{target}.load-inputs"
 title = "Validate inputs"
 description = """
+**Output this banner to the user before starting work:**
+
+```
+═══════════════════════════════════════════════════════════════
+ STAGE 7: BEADS CREATION
+ Converts the plan into a beads issue hierarchy with dependencies.
+
+ Pipeline: Spec (1-4) > Plan (5-6) > Beads (7-8) > Delivery
+ You are here: □ □ □ □ | □ □ | ■ □
+═══════════════════════════════════════════════════════════════
+```
+
+**Then proceed with step 1:**
+
 Validate that all required artifacts exist before drafting beads structure.
 
 ## Required Files

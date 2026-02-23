@@ -61,6 +61,20 @@ version = 2
 id = "{target}.context-gathering"
 title = "Gather codebase context"
 description = """
+**Output this banner to the user before starting work:**
+
+```
+═══════════════════════════════════════════════════════════════
+ STAGE 1: MULTIMODAL SCOPE QUESTIONS
+ 3x3 matrix of models and perspectives surfaces design blind spots.
+
+ Pipeline: Spec (1-4) > Plan (5-6) > Beads (7-8) > Delivery
+ You are here: ■ □ □ □ | □ □ | □ □
+═══════════════════════════════════════════════════════════════
+```
+
+**Then proceed with step 1:**
+
 Use Haiku to quickly explore the codebase and create a context document that all models will reference.
 
 **IMPORTANT: File paths must be relative to the repository root, NOT under docs/.**
