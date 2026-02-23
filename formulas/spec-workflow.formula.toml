@@ -186,8 +186,9 @@ Spec workflow is complete.
 - plans/{{feature}}/01-scope/question-triage.md (triage record)
 
 **Next steps:**
-- Run plan-workflow to produce implementation plan and beads hierarchy
-- Run epic-delivery to execute via polecats
+- Run plan-workflow to produce a reviewed implementation plan from this spec
+- Run beads-workflow to convert the plan into a verified beads issue hierarchy
+- Run epic-delivery to dispatch the beads to polecats for implementation
 """
 
 # ============================================================================
