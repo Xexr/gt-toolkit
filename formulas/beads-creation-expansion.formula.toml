@@ -235,6 +235,28 @@ For each task issue, extract from the plan:
 - **Priority:** Inherit from the plan phase or default to P2.
   Phase 1 tasks → P1. All other phases → P2.
 
+### Target Rig (Cross-Rig Projects)
+
+Determine which rig each task belongs to from its file paths:
+
+- File paths like `petals/mayor/rig/src/...` → target rig: **petals**
+- File paths like `node0/mayor/rig/src/...` → target rig: **node0**
+- File paths like `lora_forge/mayor/rig/...` → target rig: **lora_forge**
+- No file paths or all paths in current rig → target rig: **current** (default)
+
+**Single-rig projects:** All tasks target the same rig. Skip this field.
+
+**Cross-rig projects:** Each issue MUST have a `**Target Rig:**` field.
+Tasks are created in their target rig's beads DB (using that rig's bead
+prefix), NOT all in the current rig. Cross-rig blocking dependencies
+reference the full bead ID with prefix (e.g., `pe-abc` blocks `no-xyz`).
+
+Phase sub-epics stay in the project's primary rig as coordinating epics.
+Only leaf task issues move to their target rig.
+
+To find rig beads paths, check `~/gt/.beads/routes.jsonl` which maps
+prefixes to rig paths (e.g., `{"prefix":"pe-","path":"petals/mayor/rig"}`).
+
 ### Dependencies
 
 Extract dependencies from two sources:
@@ -258,11 +280,11 @@ parallelism. Missing blockers can be added later; false blockers delay work.
 Create a matrix mapping every plan task to its bead:
 
 ```
-| Plan Task | Bead Title | Sub-Epic |
-|-----------|------------|----------|
-| 1.1 [Title] | [Title] | Phase 1: [Name] |
-| 1.2 [Title] | [Title] | Phase 1: [Name] |
-| 2.1 [Title] | [Title] | Phase 2: [Name] |
+| Plan Task | Bead Title | Sub-Epic | Target Rig |
+|-----------|------------|----------|------------|
+| 1.1 [Title] | [Title] | Phase 1: [Name] | [rig or current] |
+| 1.2 [Title] | [Title] | Phase 1: [Name] | [rig or current] |
+| 2.1 [Title] | [Title] | Phase 2: [Name] | [rig or current] |
 ...
 ```
 
@@ -314,6 +336,7 @@ Use this format:
 **Type:** task
 **Priority:** [P1/P2]
 **Parent:** Phase 1
+**Target Rig:** [rig name — omit if same as project rig]
 **Dependencies:** [None / Task X.Y ([Title]), Task X.Z ([Title])]
 **Description:**
 [Full description — what, files, key details]
@@ -422,6 +445,12 @@ descriptions or acceptance criteria?
 For each plan task's 'Key details' and 'Files' sections, verify
 this information appears in the corresponding bead's description.
 File paths, function signatures, and patterns must be preserved.
+
+### 6. Rig Assignment (Cross-Rig Projects)
+If the draft has a 'Target Rig' column in the coverage matrix,
+verify that each task's rig assignment matches its file paths.
+A task with files in `node0/mayor/rig/src/...` must target node0,
+not the primary rig. Flag any mismatches.
 
 ## Output
 
@@ -705,8 +734,19 @@ separate `bd dep add` calls.
 `bd dep add <blocked-id> <blocker-id>` means the first issue depends on
 (is blocked by) the second. Get this backwards and all dependencies invert.
 
+### 0. Detect Cross-Rig Mode
+
+Check the draft's coverage matrix for the "Target Rig" column:
+- If ALL tasks target the same rig (or column is absent) → **single-rig mode**
+- If tasks target multiple rigs → **cross-rig mode**
+
+In cross-rig mode, look up rig beads paths from `~/gt/.beads/routes.jsonl`.
+Each rig has a prefix (e.g., `pe-` for petals, `no-` for node0, `lf-` for
+lora_forge) and a path where `bd create` must run from.
+
 ### 1. Create Feature Epic
 
+Create in the **primary rig** (the rig where the plan lives):
 ```bash
 bd create "{{feature}}" -t epic -p P1 -d "[Description from draft]"
 ```
@@ -715,7 +755,7 @@ Capture the returned bead ID → `EPIC_ID`
 
 ### 2. Create Phase Sub-Epics
 
-For each phase in order:
+Phase sub-epics stay in the **primary rig** as coordinating epics:
 ```bash
 bd create "Phase N: [Phase Name]" -t epic -p [P1/P2] \
   --parent $EPIC_ID \
@@ -730,15 +770,9 @@ Capture each sub-epic's bead ID → `PHASE_N_ID`
 Since dependencies only point to same-phase or earlier-phase tasks,
 all blocker IDs are available at creation time.
 
-For tasks WITH NO blocker dependencies:
-```bash
-bd create "[Task Title]" -t task -p [P1/P2] \
-  --parent $PHASE_N_ID \
-  -d "[Full description from draft]" \
-  --acceptance "[Acceptance criteria]"
-```
+#### Single-Rig Mode
 
-For tasks WITH blocker dependencies:
+All tasks created from current directory:
 ```bash
 bd create "[Task Title]" -t task -p [P1/P2] \
   --parent $PHASE_N_ID \
@@ -746,6 +780,49 @@ bd create "[Task Title]" -t task -p [P1/P2] \
   -d "[Full description from draft]" \
   --acceptance "[Acceptance criteria]"
 ```
+
+#### Cross-Rig Mode
+
+For each secondary rig, create a **local epic** first so that `--parent`
+works and `gt mq integration create` can operate natively:
+
+```bash
+# Step 1: Create a local epic in each secondary rig
+cd ~/gt/node0/mayor/rig
+bd create '<root-epic-title>: node0 component' -t epic -p [P1/P2] \
+  -d 'Local epic for node0 components. Cross-rig root: $EPIC_ID in [primary-rig].'
+# Capture → NODE0_LOCAL_EPIC_ID
+cd -  # Return to primary rig
+```
+
+Then create tasks with `--parent` pointing to the **local epic**:
+
+```bash
+# Step 2: Create tasks under the local epic
+cd ~/gt/node0/mayor/rig
+bd create "[Task Title]" -t task -p [P1/P2] \
+  --parent $NODE0_LOCAL_EPIC_ID \
+  -d "[Full description from draft]" \
+  --acceptance "[Acceptance criteria]"
+cd -  # Return to primary rig
+```
+
+Each rig's local epic enables `gt mq integration create` to work
+natively — no manual branches needed.
+
+**Cross-rig rules:**
+- `--parent` uses the **local epic** in each secondary rig's DB.
+  Also record the cross-rig root in the description:
+  `"Cross-rig root: pe-k0e (root epic in petals)"`
+- `--deps` works cross-rig for blocking deps — use full bead IDs
+  with prefix: `--deps "pe-k0e.1.3"` (petals bead blocking node0 task)
+- If `--deps` fails cross-rig, use `bd dep add` from the HQ level:
+  ```bash
+  cd ~/gt
+  bd dep add <blocked-id> <blocker-id>
+  ```
+- Add cross-rig context to descriptions so agents in remote rigs
+  understand the relationship without seeing the primary rig's beads.
 
 The `--deps` flag creates "blocks" dependencies by default. Each listed ID
 becomes a blocker of the newly created task (the new task is blocked by them).
@@ -767,37 +844,51 @@ bd ready         # Should show expected number of unblocked items
 bd show $EPIC_ID # Verify tree structure
 ```
 
+For cross-rig projects, also verify in each target rig:
+```bash
+cd ~/gt/[rig]/mayor/rig && bd list --status open
+```
+
 If `bd dep cycles` finds cycles, fix them by removing the dependency that
 creates the cycle (refer to the draft's Dependencies table for which one
 is least critical). Use `bd dep remove <blocked-id> <blocker-id>` to fix.
 
-### 5. Set Up Integration Branch
+### 5. Set Up Integration Branches
 
-After all beads are created and verified, create an integration branch
-on the top-level epic:
-
+**Single-rig:** Create one integration branch on the feature epic:
 ```bash
 gt mq integration create $EPIC_ID
 ```
 
-This creates a git integration branch that child work will merge into.
+**Cross-rig:** Each secondary rig has its own local epic, so
+`gt mq integration create` works natively in every rig:
+```bash
+gt mq integration create $EPIC_ID                         # Primary rig
+cd ~/gt/node0/mayor/rig && gt mq integration create $NODE0_LOCAL_EPIC_ID  # Each secondary rig
+```
+
+No manual branch creation needed — each rig's local epic provides the
+anchor for `gt mq integration create`.
 
 ## ID Tracking
 
 Maintain a mapping as you create beads:
 
 ```
-Plan Reference → Bead ID
-─────────────────────────
-Feature epic   → [id]
-Phase 1        → [id]
-Task 1.1       → [id]
-Task 1.2       → [id]
+Plan Reference → Bead ID    → Rig
+──────────────────────────────────────
+Feature epic   → [id]       → [primary]
+Phase 1        → [id]       → [primary]
+Task 1.1       → [id]       → [primary]
+Task 3.1       → [id]       → [node0]
+Task 5.1       → [id]       → [lora_forge]
 ...
 ```
 
 This mapping is needed for:
 - Specifying `--parent` and `--deps` during creation
+- Knowing which rig's DB to run `bd create` from
+- Wiring cross-rig dependencies with correct bead IDs
 - The final report
 
 ## Error Handling
@@ -840,18 +931,30 @@ Write to: `plans/{{feature}}/04-beads/beads-report.md`
 | Phase sub-epics | N |
 | Task issues | M |
 | Blocker dependencies | K |
+| Cross-rig dependencies | C |
 | Ready immediately (no blockers) | W |
+| Rigs involved | R |
 
 ---
 
 ## Bead ID Mapping
 
-| Plan Reference | Bead ID | Type | Title |
-|---------------|---------|------|-------|
-| Feature | [id] | epic | {{feature}} |
+| Plan Reference | Bead ID | Type | Title | Rig |
+|---------------|---------|------|-------|-----|
+| Feature | [id] | epic | {{feature}} | [primary] |
 | Phase 1 | [id] | epic | Phase 1: [Name] |
 | Task 1.1 | [id] | task | [Title] |
 | Task 1.2 | [id] | task | [Title] |
+...
+
+---
+
+## Local Epics (Cross-Rig)
+
+| Rig | Local Epic ID | Local Epic Title | Root Epic (Primary Rig) |
+|-----|--------------|------------------|------------------------|
+| [primary] | [root-epic-id] | {{feature}} | — (this is the root) |
+| [secondary-rig] | [local-epic-id] | {{feature}}: [rig] component | [root-epic-id] in [primary] |
 ...
 
 ---
@@ -884,24 +987,27 @@ Items with no blockers (can start immediately):
 
 ---
 
-## Integration Branch
+## Integration Branches
 
-Feature epic: [id]
-Integration branch: [branch name from gt mq integration create output]
+| Rig | Local Epic ID | Branch | Created Via |
+|-----|--------------|--------|-------------|
+| [primary] | [root-epic-id] | [branch name] | `gt mq integration create` |
+| [secondary-rig] | [local-epic-id] | [branch name] | `gt mq integration create` |
 
 ---
 
 ## Coverage Verification
 
-| Plan Task | Bead ID | Status |
-|-----------|---------|--------|
-| 1.1 [Title] | [id] | Created ✓ |
-| 1.2 [Title] | [id] | Created ✓ |
+| Plan Task | Bead ID | Rig | Status |
+|-----------|---------|-----|--------|
+| 1.1 [Title] | [id] | [rig] | Created ✓ |
+| 1.2 [Title] | [id] | [rig] | Created ✓ |
 ...
 
 **Plan tasks:** N
 **Beads created:** N
 **Coverage:** 100%
+**Rigs:** [list of rigs with bead counts]
 
 ---
 
